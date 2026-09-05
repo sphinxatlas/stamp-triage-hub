@@ -3,7 +3,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Info } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { SIGNIFICANCE_LABELS, SignificanceBadgeClass } from "@/components/market-lookup";
+import {
+  EstimateAllHighPriority,
+  EstimateCell,
+  type EstimateTarget,
+} from "@/components/estimate-cell";
+import { SIGNIFICANCE_LABELS } from "@/components/market-lookup";
 import { SetDetail, StampDetail } from "@/components/record-detail";
 import { StampCrop } from "@/components/stamp-crop";
 import { Badge } from "@/components/ui/badge";
@@ -35,8 +40,9 @@ import {
 } from "@/components/ui/tooltip";
 import {
   PRIORITY_TIER_LABELS,
+  priorityDotClass,
   priorityTier,
-  priorityTierBadgeClass,
+  whyThisIsHere,
   type PriorityTier,
 } from "@/lib/priority";
 import {
@@ -47,6 +53,7 @@ import {
   type ReviewSet,
 } from "@/lib/triage";
 import { cn } from "@/lib/utils";
+
 
 function euro(value: number | null) {
   return value === null ? "?" : `EUR ${value.toLocaleString("en-GB")}`;
@@ -100,6 +107,26 @@ function EstimateHeader() {
   );
 }
 
+function PriorityCell({ score, reasons }: { score: number; reasons: string[] | null }) {
+  const tier = priorityTier(score);
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="inline-flex items-center gap-2 whitespace-nowrap text-sm">
+            <span
+              className={cn("h-2.5 w-2.5 shrink-0 rounded-full", priorityDotClass(tier))}
+              aria-hidden="true"
+            />
+            {PRIORITY_TIER_LABELS[tier]}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs">{whyThisIsHere(reasons)}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
 function Stamps() {
   const { data } = useSuspenseQuery(stampsQuery);
   const { data: setsData } = useSuspenseQuery(setsQuery);
@@ -112,7 +139,8 @@ function Stamps() {
   const [tier, setTier] = useState(ANY);
   const [significance, setSignificance] = useState(ANY);
   const [onlySets, setOnlySets] = useState(false);
-  const [sort, setSort] = useState<SortKey>("newest");
+  const [sort, setSort] = useState<SortKey>("priority");
+
   const [openStamp, setOpenStamp] = useState<BrowseStamp | null>(null);
   const [openSet, setOpenSet] = useState<ReviewSet | null>(null);
 
@@ -179,6 +207,24 @@ function Stamps() {
       sorted.sort((a, b) => (a.country ?? "zz").localeCompare(b.country ?? "zz"));
     return sorted;
   }, [setsData.sets, term, container, country, status, tier, significance, sort]);
+
+  const highTargets = useMemo<EstimateTarget[]>(() => {
+    const needsEstimate = (low: number | null, high: number | null, score: number) =>
+      priorityTier(score) === "high" && low === null && high === null;
+    const stampTargets = data.stamps
+      .filter((stamp) => needsEstimate(stamp.value_low, stamp.value_high, stamp.priority_score))
+      .map((stamp) => ({
+        kind: "stamp" as const,
+        id: stamp.id,
+        label: `${stamp.country ?? "Unknown"} ${stamp.issue_name ?? ""}`.trim(),
+      }));
+    const setTargets = setsData.sets
+      .filter((item) => needsEstimate(item.value_low, item.value_high, item.priority_score))
+      .map((item) => ({ kind: "set" as const, id: item.id, label: item.set_name }));
+    return [...stampTargets, ...setTargets];
+  }, [data.stamps, setsData.sets]);
+
+
 
   return (
     <div className="space-y-4">
@@ -268,39 +314,44 @@ function Stamps() {
         ) : null}
       </div>
 
-      <div className="overflow-x-auto">
+      <div className="flex flex-wrap items-center gap-3">
+        <EstimateAllHighPriority targets={highTargets} />
+        <p className="text-xs text-muted-foreground">
+          Rough estimates come from the photo, not from a valuer.
+        </p>
+      </div>
+
+      <div>
       {view === "stamps" ? (
-        <Table className="min-w-[1100px]">
+        <Table className="w-full table-fixed">
           <TableHeader>
             <TableRow>
-              <TableHead>Image</TableHead>
-              <TableHead>Where</TableHead>
-              <TableHead>Country</TableHead>
-              <TableHead>Denomination</TableHead>
-              <TableHead>Year</TableHead>
-              <TableHead>Issue</TableHead>
-              <TableHead>Catalogue</TableHead>
-              <TableHead>Item type</TableHead>
-              <TableHead>Set</TableHead>
-              <TableHead>Significance</TableHead>
-              <TableHead>Priority</TableHead>
-              <TableHead className="text-right">
+              <TableHead className="w-16">Image</TableHead>
+              <TableHead className="w-28">Page</TableHead>
+              <TableHead className="w-28">Country</TableHead>
+              <TableHead className="w-32">Value</TableHead>
+              <TableHead className="w-16">Year</TableHead>
+              <TableHead>Issue or set</TableHead>
+              <TableHead className="w-36">Priority</TableHead>
+              <TableHead className="w-40 text-right">
                 <EstimateHeader />
               </TableHead>
-              <TableHead>Review status</TableHead>
+              <TableHead className="w-28">Review</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={13} className="text-muted-foreground">
+                <TableCell colSpan={9} className="text-muted-foreground">
                   {data.stamps.length === 0
                     ? "No stamps recorded yet"
                     : "No stamps match your filters"}
                 </TableCell>
               </TableRow>
             ) : (
-              filtered.map((stamp) => (
+              filtered.map((stamp) => {
+                const name = stamp.set_name ?? stamp.issue_name ?? "—";
+                return (
                 <TableRow
                   key={stamp.id}
                   className="cursor-pointer"
@@ -316,55 +367,51 @@ function Stamps() {
                       className="h-14 w-12"
                     />
                   </TableCell>
-                  <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                    {stamp.container_label} · {stamp.page_label}
+                  <TableCell className="truncate text-xs text-muted-foreground">
+                    {stamp.page_label}
                   </TableCell>
-                  <TableCell>{stamp.country ?? "—"}</TableCell>
-                  <TableCell>{formatDenomination(stamp.denomination, stamp.currency)}</TableCell>
+                  <TableCell className="truncate">{stamp.country ?? "—"}</TableCell>
+                  <TableCell className="truncate">
+                    {formatDenomination(stamp.denomination, stamp.currency)}
+                  </TableCell>
                   <TableCell>{stamp.year_estimate ?? "—"}</TableCell>
-                  <TableCell className="max-w-40 truncate">{stamp.issue_name ?? "—"}</TableCell>
-                  <TableCell className="whitespace-nowrap">
-                    {[stamp.catalogue_system, stamp.catalogue_number].filter(Boolean).join(" ") ||
-                      "—"}
-                  </TableCell>
-                  <TableCell>{stamp.item_type}</TableCell>
-                  <TableCell className="max-w-40 truncate">
-                    {stamp.set_name
-                      ? `${stamp.set_name} (${stamp.set_member_count})`
-                      : "—"}
+                  <TableCell className="truncate" title={name}>
+                    {name}
                   </TableCell>
                   <TableCell>
-                    <Badge className={SignificanceBadgeClass(stamp.significance_level)}>
-                      {SIGNIFICANCE_LABELS[stamp.significance_level] ?? stamp.significance_level}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={priorityTierBadgeClass(priorityTier(stamp.priority_score))}>
-                      {PRIORITY_TIER_LABELS[priorityTier(stamp.priority_score)]}
-                    </Badge>
+                    <PriorityCell
+                      score={stamp.priority_score}
+                      reasons={stamp.priority_reasons}
+                    />
                   </TableCell>
                   <TableCell className="whitespace-nowrap text-right">
-                    {range(stamp.value_low, stamp.value_high)}
+                    {stamp.value_low === null && stamp.value_high === null ? (
+                      <EstimateCell kind="stamp" id={stamp.id} />
+                    ) : (
+                      range(stamp.value_low, stamp.value_high)
+                    )}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="truncate">
                     <Badge variant="secondary">{stamp.review_status}</Badge>
                   </TableCell>
                 </TableRow>
-              ))
+                );
+              })
             )}
+
           </TableBody>
         </Table>
       ) : (
-        <Table className="min-w-[900px]">
+        <Table className="w-full table-fixed">
           <TableHeader>
             <TableRow>
-              <TableHead>Members</TableHead>
+              <TableHead className="w-52">Members</TableHead>
               <TableHead>Set</TableHead>
-              <TableHead>Catalogue range</TableHead>
-              <TableHead>Present</TableHead>
-              <TableHead>Completeness</TableHead>
-              <TableHead>Priority</TableHead>
-              <TableHead className="text-right">
+              <TableHead className="w-32">Catalogue</TableHead>
+              <TableHead className="w-20">Present</TableHead>
+              <TableHead className="w-28">Complete</TableHead>
+              <TableHead className="w-36">Priority</TableHead>
+              <TableHead className="w-40 text-right">
                 <EstimateHeader />
               </TableHead>
               <TableHead>Review status</TableHead>
@@ -407,8 +454,8 @@ function Stamps() {
                         ) : null}
                       </div>
                     </TableCell>
-                    <TableCell>
-                      <p className="font-medium">{item.set_name}</p>
+                    <TableCell className="truncate" title={item.set_name}>
+                      <p className="truncate font-medium">{item.set_name}</p>
                       <p className="text-xs text-muted-foreground">
                         {item.container_label} · {item.page_label}
                       </p>
@@ -429,12 +476,14 @@ function Stamps() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge className={priorityTierBadgeClass(priorityTier(item.priority_score))}>
-                        {PRIORITY_TIER_LABELS[priorityTier(item.priority_score)]}
-                      </Badge>
+                      <PriorityCell score={item.priority_score} reasons={item.priority_reasons} />
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-right">
-                      {range(item.value_low, item.value_high)}
+                      {item.value_low === null && item.value_high === null ? (
+                        <EstimateCell kind="set" id={item.id} />
+                      ) : (
+                        range(item.value_low, item.value_high)
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge variant="secondary">{item.review_status}</Badge>
