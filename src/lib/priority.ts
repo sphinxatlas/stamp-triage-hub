@@ -205,3 +205,17 @@ export function whyThisIsHere(reasons: string[] | null | undefined) {
       : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]!}`;
   return `Why this is here: ${sentence}.`;
 }
+
+// Single visual scale used in tables: a coloured dot instead of a filled badge.
+export function priorityDotClass(tier: PriorityTier) {
+  switch (tier) {
+    case "high":
+      return "bg-priority-high";
+    case "medium":
+      return "bg-priority-medium";
+    case "low":
+      return "bg-priority-low";
+    default:
+      return "border border-border bg-transparent";
+  }
+}
