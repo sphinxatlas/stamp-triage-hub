@@ -30,6 +30,13 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Toggle } from "@/components/ui/toggle";
 import {
+  PRIORITY_TIER_LABELS,
+  priorityTier,
+  priorityTierBadgeClass,
+  whyThisIsHere,
+} from "@/lib/priority";
+import { researchBrief } from "@/lib/research.functions";
+import {
   FAULT_OPTIONS,
   FORMAT_OPTIONS,
   GUM_OPTIONS,
@@ -38,7 +45,6 @@ import {
   fetchReviewQueue,
   fetchReviewSets,
   formatDenomination,
-  marketSearchPhrase,
   saveSet,
   saveStamp,
   type ReviewSet,
