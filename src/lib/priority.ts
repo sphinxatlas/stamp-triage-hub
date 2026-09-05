@@ -114,11 +114,10 @@ export type SetPriorityInput = {
 
 export function computeSetPriority(input: SetPriorityInput): Priority {
   let best: Priority = { score: 0, reasons: [] };
-  for (const member of input.members) {
-    if (member.score > best.score || best.reasons.length === 0) {
-      if (member.score >= best.score) best = member;
-    }
-  }
+  input.members.forEach((member, index) => {
+    if (index === 0 || member.score > best.score) best = member;
+  });
+
 
   let score = best.score;
   const reasons = [...best.reasons];
