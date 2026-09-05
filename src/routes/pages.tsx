@@ -25,11 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   Table,
   TableBody,
@@ -57,8 +53,6 @@ const countsQuery = queryOptions({
   queryKey: ["page-stamp-counts"],
   queryFn: fetchPageStampCounts,
 });
-
-
 
 async function fetchThumbnails(paths: string[]) {
   if (paths.length === 0) return {} as Record<string, string>;
@@ -151,7 +145,6 @@ function Pages() {
 
   const labelOf = (id: string) => pages.find((page) => page.id === id)?.label ?? id;
 
-
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Pages</h1>
@@ -188,8 +181,7 @@ function Pages() {
             setChecked(
               sorted
                 .filter(
-                  (page) =>
-                    page.identify_status === "done" || page.identify_status === "failed",
+                  (page) => page.identify_status === "done" || page.identify_status === "failed",
                 )
                 .map((page) => page.id),
             )
@@ -206,12 +198,7 @@ function Pages() {
             <Button size="sm" disabled={running} onClick={() => setDialogOpen(true)}>
               Re-run identification
             </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={running}
-              onClick={() => setChecked([])}
-            >
+            <Button size="sm" variant="outline" disabled={running} onClick={() => setChecked([])}>
               Clear selection
             </Button>
           </div>
@@ -242,7 +229,6 @@ function Pages() {
           <IdentifyRunPanel />
         </section>
       ) : null}
-
 
       <Table>
         <TableHeader>
@@ -343,7 +329,6 @@ function Pages() {
       ) : null}
     </div>
   );
-
 }
 
 function PageDetail({

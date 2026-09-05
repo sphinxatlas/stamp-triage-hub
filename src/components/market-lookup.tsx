@@ -85,7 +85,6 @@ export function MarketLookup({ record }: { record: MarketRecord }) {
     },
   ];
 
-
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(phrase);

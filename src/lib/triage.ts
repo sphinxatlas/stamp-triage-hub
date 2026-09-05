@@ -1,5 +1,10 @@
 import { supabase } from "@/integrations/supabase/client";
-import { computePriority, computeSetPriority } from "@/lib/priority";
+import {
+  computePriority,
+  computeSetPriority,
+  priorityTier,
+  type PriorityTier,
+} from "@/lib/priority";
 
 export const CONTAINER_TYPES = ["album", "box", "loose_sheet", "review_book"] as const;
 
@@ -107,37 +112,59 @@ export async function fetchStamps() {
   return (data ?? []) as Stamp[];
 }
 
-export async function fetchReviewStamps() {
-  const { data, error } = await supabase
-    .from("stamps")
-    .select("*")
-    .in("review_status", ["pending", "flagged_expert"])
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  return (data ?? []) as Stamp[];
-}
-
 export async function fetchDashboard() {
-  const [stamps, containers] = await Promise.all([
-    supabase.from("stamps").select("review_status, country, quantity"),
-    supabase.from("containers").select("id"),
+  const [stamps, sets, containers, pages] = await Promise.all([
+    supabase
+      .from("stamps")
+      .select(
+        "id, country, issue_name, denomination, currency, page_id, priority_score, priority_reasons",
+      )
+      .neq("review_status", "rejected"),
+    supabase.from("stamp_sets").select("id"),
+    supabase.from("containers").select("id, label"),
+    supabase.from("pages").select("id, label, container_id"),
   ]);
-  if (stamps.error) throw stamps.error;
-  if (containers.error) throw containers.error;
+  for (const result of [stamps, sets, containers, pages]) {
+    if (result.error) throw result.error;
+  }
+
+  const containerLabels = new Map((containers.data ?? []).map((row) => [row.id, row.label]));
+  const pageInfo = new Map(
+    (pages.data ?? []).map((row) => [row.id, { label: row.label, container_id: row.container_id }]),
+  );
 
   const rows = stamps.data ?? [];
-  const byStatus: Record<string, number> = {};
-  const byCountry: Record<string, number> = {};
+  const byContainer: Record<string, number> = {};
+  const byTier: Record<PriorityTier, number> = { high: 0, medium: 0, low: 0, skip: 0 };
+
   for (const row of rows) {
-    byStatus[row.review_status] = (byStatus[row.review_status] ?? 0) + 1;
-    const country = row.country ?? "Unknown";
-    byCountry[country] = (byCountry[country] ?? 0) + 1;
+    const page = pageInfo.get(row.page_id);
+    const label = page ? (containerLabels.get(page.container_id) ?? "Unknown") : "Unknown";
+    byContainer[label] = (byContainer[label] ?? 0) + 1;
+    byTier[priorityTier(row.priority_score)] += 1;
   }
+
+  const top20 = [...rows]
+    .sort((a, b) => b.priority_score - a.priority_score)
+    .slice(0, 20)
+    .map((row) => ({
+      id: row.id,
+      label:
+        [row.country, row.issue_name ?? formatDenomination(row.denomination, row.currency)]
+          .filter((part) => part && part !== "—")
+          .join(" · ") || "Unnamed stamp",
+      page_label: pageInfo.get(row.page_id)?.label ?? "",
+      priority_score: row.priority_score,
+      priority_reasons: row.priority_reasons as string[] | null,
+    }));
+
   return {
     totalStamps: rows.length,
+    totalSets: sets.data?.length ?? 0,
     containerCount: containers.data?.length ?? 0,
-    byStatus,
-    byCountry: Object.entries(byCountry).sort((a, b) => b[1] - a[1]),
+    byContainer: Object.entries(byContainer).sort((a, b) => b[1] - a[1]),
+    byTier,
+    top20,
   };
 }
 
@@ -165,11 +192,7 @@ export async function fetchPageStampCounts() {
 }
 
 export async function fetchPageDetail(pageId: string) {
-  const { data, error } = await supabase
-    .from("pages")
-    .select("*")
-    .eq("id", pageId)
-    .single();
+  const { data, error } = await supabase.from("pages").select("*").eq("id", pageId).single();
   if (error) throw error;
   return data as Page & { raw_model_output: unknown };
 }
@@ -272,45 +295,6 @@ export function parseBbox(value: unknown): Bbox | null {
   return out as unknown as Bbox;
 }
 
-export async function fetchReviewQueue() {
-  const { data, error } = await supabase
-    .from("stamps")
-    .select("*, pages!inner(label, photo_path, containers!inner(label))")
-    .in("review_status", ["pending", "flagged_expert"])
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-
-  const rows = (data ?? []) as unknown as Array<
-    Record<string, unknown> & {
-      pages: { label: string; photo_path: string | null; containers: { label: string } };
-    }
-  >;
-
-  const stamps = rows.map((row) => {
-    const { pages, ...rest } = row;
-    return {
-      ...(rest as unknown as ReviewStamp),
-      page_label: pages.label,
-      page_photo_path: pages.photo_path,
-      container_label: pages.containers.label,
-    } as ReviewStamp;
-  });
-
-  const paths = Array.from(
-    new Set(stamps.map((stamp) => stamp.page_photo_path).filter((p): p is string => !!p)),
-  );
-  const photoUrls: Record<string, string> = {};
-  if (paths.length > 0) {
-    const signed = await supabase.storage.from("captures").createSignedUrls(paths, 3600);
-    if (signed.error) throw signed.error;
-    for (const item of signed.data ?? []) {
-      if (item.path && item.signedUrl) photoUrls[item.path] = item.signedUrl;
-    }
-  }
-
-  return { stamps, photoUrls };
-}
-
 export const FAULT_OPTIONS = [
   "thin",
   "crease",
@@ -322,13 +306,7 @@ export const FAULT_OPTIONS = [
   "fading",
 ] as const;
 
-export const ITEM_TYPE_OPTIONS = [
-  "postage",
-  "revenue",
-  "cinderella",
-  "label",
-  "unknown",
-] as const;
+export const ITEM_TYPE_OPTIONS = ["postage", "revenue", "cinderella", "label", "unknown"] as const;
 
 export const FORMAT_OPTIONS = ["single", "block", "sheet", "on_cover", "se_tenant"] as const;
 export const MINT_OPTIONS = ["mint", "used", "unknown"] as const;
@@ -417,13 +395,10 @@ export async function fetchAllSets() {
 }
 
 export async function fetchReviewSets(statuses: string[] | null = ["pending", "flagged_expert"]) {
-  let query = supabase
-    .from("stamp_sets")
-    .select("*, pages!inner(label, containers!inner(label))");
+  let query = supabase.from("stamp_sets").select("*, pages!inner(label, containers!inner(label))");
   if (statuses) query = query.in("review_status", statuses);
   const { data, error } = await query.order("created_at", { ascending: false });
   if (error) throw error;
-
 
   const rows = (data ?? []) as unknown as Array<
     Record<string, unknown> & { pages: { label: string; containers: { label: string } } }
@@ -531,57 +506,6 @@ export function marketSearchPhrase(record: {
     .join(" ");
 }
 
-export type TopValueItem = {
-  id: string;
-  kind: "stamp" | "set";
-  label: string;
-  value_low: number | null;
-  value_high: number | null;
-  value_confidence: number | null;
-};
-
-export async function fetchTopValues(): Promise<TopValueItem[]> {
-  const [stamps, sets] = await Promise.all([
-    supabase
-      .from("stamps")
-      .select("id, country, year_estimate, issue_name, denomination, currency, value_low, value_high, value_confidence")
-      .not("value_high", "is", null)
-      .order("value_high", { ascending: false })
-      .limit(10),
-    supabase
-      .from("stamp_sets")
-      .select("id, set_name, country, value_low, value_high, value_confidence")
-      .not("value_high", "is", null)
-      .order("value_high", { ascending: false })
-      .limit(10),
-  ]);
-  if (stamps.error) throw stamps.error;
-  if (sets.error) throw sets.error;
-
-  const items: TopValueItem[] = [
-    ...(stamps.data ?? []).map((row) => ({
-      id: row.id,
-      kind: "stamp" as const,
-      label: [row.country, row.year_estimate, row.issue_name ?? formatDenomination(row.denomination, row.currency)]
-        .filter(Boolean)
-        .join(" · ") || "Unnamed stamp",
-      value_low: row.value_low,
-      value_high: row.value_high,
-      value_confidence: row.value_confidence,
-    })),
-    ...(sets.data ?? []).map((row) => ({
-      id: row.id,
-      kind: "set" as const,
-      label: [row.country, row.set_name].filter(Boolean).join(" · ") || "Unnamed set",
-      value_low: (row as { value_low: number | null }).value_low,
-      value_high: (row as { value_high: number | null }).value_high,
-      value_confidence: (row as { value_confidence: number | null }).value_confidence,
-    })),
-  ];
-
-  return items.sort((a, b) => (b.value_high ?? 0) - (a.value_high ?? 0)).slice(0, 10);
-}
-
 export type BrowseStamp = ReviewStamp & {
   set_id: string | null;
   set_name: string | null;
@@ -642,7 +566,7 @@ export async function recalculatePriorities() {
     supabase
       .from("stamps")
       .select(
-        "id, set_id, significance_level, forgery_risk, variants_to_check, confidence, year_estimate, format, country, denomination, currency, item_type, is_overprinted, priority_score, priority_reasons",
+        "id, set_id, confidence, year_estimate, format, country, denomination, currency, item_type, is_overprinted, priority_score, priority_reasons",
       ),
     supabase.from("stamp_sets").select("id, item_count"),
   ]);
@@ -655,9 +579,6 @@ export async function recalculatePriorities() {
   const computed = new Map<string, { score: number; reasons: string[]; set_id: string | null }>();
   for (const row of stamps) {
     const priority = computePriority({
-      significance_level: row["significance_level"] as string | null,
-      forgery_risk: row["forgery_risk"] as string | null,
-      variants_to_check: row["variants_to_check"] as string | null,
       confidence: row["confidence"] === null ? null : Number(row["confidence"]),
       year_estimate: row["year_estimate"] as number | null,
       format: row["format"] as string | null,
@@ -710,38 +631,201 @@ export async function recalculatePriorities() {
   return { stampsUpdated, setsUpdated };
 }
 
-export type BriefTarget = { kind: "stamp" | "set"; id: string; label: string };
+export type ExportStamp = {
+  id: string;
+  container_label: string;
+  page_label: string;
+  page_photo_path: string | null;
+  position_index: number | null;
+  bbox: unknown;
+  country: string | null;
+  country_inscription: string | null;
+  denomination: string | null;
+  currency: string | null;
+  year_estimate: number | null;
+  issue_name: string | null;
+  catalogue_system: string | null;
+  catalogue_number: string | null;
+  item_type: string;
+  format: string;
+  is_overprinted: boolean;
+  mint_or_used: string | null;
+  faults: string[] | null;
+  confidence: number | null;
+  priority_score: number;
+  priority_reasons: string[] | null;
+  set_id: string | null;
+  set_name: string | null;
+  quantity: number;
+  notes: string | null;
+  market_notes: string | null;
+};
 
-/** Stamps and sets on a page that still have no research brief. */
-export async function fetchBriefTargets(pageId: string): Promise<BriefTarget[]> {
-  const [stamps, sets] = await Promise.all([
+export type ExportSet = {
+  id: string;
+  container_label: string;
+  page_label: string;
+  set_name: string;
+  catalogue_system: string | null;
+  catalogue_range: string | null;
+  item_count: number | null;
+  present_count: number;
+  is_complete: boolean | null;
+  priority_score: number;
+  member_ids: string[];
+};
+
+export type ExportPage = {
+  id: string;
+  container_label: string;
+  page_label: string;
+  capture_type: string | null;
+  photo_path: string | null;
+  identify_status: string;
+  stamp_count: number;
+  page_notes: string | null;
+};
+
+export type ExportData = {
+  stamps: ExportStamp[];
+  sets: ExportSet[];
+  pages: ExportPage[];
+  photoUrls: Record<string, string>;
+};
+
+/** Everything the export route needs, optionally limited to one container. */
+export async function fetchExportData(containerId?: string): Promise<ExportData> {
+  const [containersResult, pagesResult] = await Promise.all([
+    supabase.from("containers").select("id, label"),
+    containerId
+      ? supabase.from("pages").select("*").eq("container_id", containerId)
+      : supabase.from("pages").select("*"),
+  ]);
+  if (containersResult.error) throw containersResult.error;
+  if (pagesResult.error) throw pagesResult.error;
+
+  const containerLabels = new Map((containersResult.data ?? []).map((row) => [row.id, row.label]));
+  const pageRows = (pagesResult.data ?? []) as Array<Page>;
+  pageRows.sort((a, b) => a.label.localeCompare(b.label));
+  const pageIds = pageRows.map((page) => page.id);
+  const pageMeta = new Map(
+    pageRows.map((page) => [
+      page.id,
+      {
+        page_label: page.label,
+        container_label: containerLabels.get(page.container_id) ?? "Unknown",
+        photo_path: page.photo_path,
+      },
+    ]),
+  );
+
+  if (pageIds.length === 0) return { stamps: [], sets: [], pages: [], photoUrls: {} };
+
+  const [stampsResult, setsResult] = await Promise.all([
     supabase
       .from("stamps")
-      .select("id, country, denomination, research_brief")
-      .eq("page_id", pageId)
+      .select("*, stamp_sets(set_name)")
+      .in("page_id", pageIds)
       .order("position_index", { ascending: true }),
-    supabase
-      .from("stamp_sets")
-      .select("id, set_name, research_brief")
-      .eq("page_id", pageId),
+    supabase.from("stamp_sets").select("*").in("page_id", pageIds),
   ]);
-  if (stamps.error) throw stamps.error;
-  if (sets.error) throw sets.error;
+  if (stampsResult.error) throw stampsResult.error;
+  if (setsResult.error) throw setsResult.error;
 
-  const targets: BriefTarget[] = [];
-  for (const set of sets.data ?? []) {
-    if (!set.research_brief) {
-      targets.push({ kind: "set", id: set.id, label: set.set_name ?? "Set" });
+  const stampRows = (stampsResult.data ?? []) as unknown as Array<
+    Record<string, unknown> & { stamp_sets: { set_name: string } | null }
+  >;
+
+  const stamps: ExportStamp[] = stampRows
+    .filter((row) => row["review_status"] !== "rejected")
+    .map((row) => {
+      const meta = pageMeta.get(String(row["page_id"]))!;
+      return {
+        id: String(row["id"]),
+        container_label: meta.container_label,
+        page_label: meta.page_label,
+        page_photo_path: meta.photo_path,
+        position_index: (row["position_index"] as number | null) ?? null,
+        bbox: row["bbox"],
+        country: (row["country"] as string | null) ?? null,
+        country_inscription: (row["country_inscription"] as string | null) ?? null,
+        denomination: (row["denomination"] as string | null) ?? null,
+        currency: (row["currency"] as string | null) ?? null,
+        year_estimate: (row["year_estimate"] as number | null) ?? null,
+        issue_name: (row["issue_name"] as string | null) ?? null,
+        catalogue_system: (row["catalogue_system"] as string | null) ?? null,
+        catalogue_number: (row["catalogue_number"] as string | null) ?? null,
+        item_type: String(row["item_type"]),
+        format: String(row["format"]),
+        is_overprinted: row["is_overprinted"] === true,
+        mint_or_used: (row["mint_or_used"] as string | null) ?? null,
+        faults: (row["faults"] as string[] | null) ?? null,
+        confidence: row["confidence"] === null ? null : Number(row["confidence"]),
+        priority_score: Number(row["priority_score"] ?? 0),
+        priority_reasons: (row["priority_reasons"] as string[] | null) ?? null,
+        set_id: (row["set_id"] as string | null) ?? null,
+        set_name: row.stamp_sets?.set_name ?? null,
+        quantity: Number(row["quantity"] ?? 1),
+        notes: (row["notes"] as string | null) ?? null,
+        market_notes: (row["market_notes"] as string | null) ?? null,
+      };
+    });
+
+  const membersBySet: Record<string, string[]> = {};
+  for (const stamp of stamps) {
+    if (stamp.set_id) (membersBySet[stamp.set_id] ??= []).push(stamp.id);
+  }
+
+  const sets: ExportSet[] = (
+    (setsResult.data ?? []) as unknown as Array<Record<string, unknown>>
+  ).map((row) => {
+    const id = String(row["id"]);
+    const meta = pageMeta.get(String(row["page_id"]))!;
+    const members = membersBySet[id] ?? [];
+    const expected = row["item_count"] === null ? null : Number(row["item_count"]);
+    return {
+      id,
+      container_label: meta.container_label,
+      page_label: meta.page_label,
+      set_name: String(row["set_name"]),
+      catalogue_system: (row["catalogue_system"] as string | null) ?? null,
+      catalogue_range: (row["catalogue_range"] as string | null) ?? null,
+      item_count: expected,
+      present_count: members.length,
+      is_complete: expected !== null && expected > 0 ? members.length >= expected : null,
+      priority_score: Number(row["priority_score"] ?? 0),
+      member_ids: members,
+    };
+  });
+
+  const countByPage: Record<string, number> = {};
+  for (const row of stampRows) {
+    const pageId = String(row["page_id"]);
+    countByPage[pageId] = (countByPage[pageId] ?? 0) + 1;
+  }
+
+  const pages: ExportPage[] = pageRows.map((page) => ({
+    id: page.id,
+    container_label: containerLabels.get(page.container_id) ?? "Unknown",
+    page_label: page.label,
+    capture_type: page.capture_type,
+    photo_path: page.photo_path,
+    identify_status: page.identify_status,
+    stamp_count: countByPage[page.id] ?? 0,
+    page_notes: page.page_notes,
+  }));
+
+  const paths = Array.from(
+    new Set(pageRows.map((page) => page.photo_path).filter((p): p is string => !!p)),
+  );
+  const photoUrls: Record<string, string> = {};
+  if (paths.length > 0) {
+    const signed = await supabase.storage.from("captures").createSignedUrls(paths, 3600);
+    if (signed.error) throw signed.error;
+    for (const item of signed.data ?? []) {
+      if (item.path && item.signedUrl) photoUrls[item.path] = item.signedUrl;
     }
   }
-  for (const stamp of stamps.data ?? []) {
-    if (!stamp.research_brief) {
-      targets.push({
-        kind: "stamp",
-        id: stamp.id,
-        label: [stamp.country, stamp.denomination].filter(Boolean).join(" ") || "Stamp",
-      });
-    }
-  }
-  return targets;
+
+  return { stamps, sets, pages, photoUrls };
 }

@@ -86,7 +86,9 @@ function Capture() {
   const addFiles = async (files: File[]) => {
     const images = files.filter((file) => file.type.startsWith("image/"));
     if (images.length === 0) return;
-    const sorted = [...images].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+    const sorted = [...images].sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { numeric: true }),
+    );
     const next: Staged[] = sorted.map((file, index) => ({
       key: `${file.name}-${Date.now()}-${index}`,
       file,
@@ -140,12 +142,10 @@ function Capture() {
           if (error) throw error;
 
           const path = `${page.label}/${Date.now()}.jpg`;
-          const result = await supabase.storage
-            .from("captures")
-            .upload(path, item.file, {
-              contentType: item.file.type || "image/jpeg",
-              upsert: true,
-            });
+          const result = await supabase.storage.from("captures").upload(path, item.file, {
+            contentType: item.file.type || "image/jpeg",
+            upsert: true,
+          });
           if (result.error) throw result.error;
 
           const { error: updateError } = await supabase
