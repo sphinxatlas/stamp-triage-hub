@@ -1,5 +1,19 @@
-import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
+import { queryOptions, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
+import { toast } from "sonner";
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -10,7 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { fetchDashboard, fetchTopValues } from "@/lib/triage";
+import { fetchDashboard, fetchTopValues, recalculatePriorities } from "@/lib/triage";
 
 const dashboardQuery = queryOptions({ queryKey: ["dashboard"], queryFn: fetchDashboard });
 const topValuesQuery = queryOptions({ queryKey: ["dashboard", "top-values"], queryFn: fetchTopValues });
@@ -43,10 +57,58 @@ export const Route = createFileRoute("/")({
 function Dashboard() {
   const { data } = useSuspenseQuery(dashboardQuery);
   const { data: topValues } = useSuspenseQuery(topValuesQuery);
+  const queryClient = useQueryClient();
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [recalculating, setRecalculating] = useState(false);
+
+  const runRecalculate = async () => {
+    setRecalculating(true);
+    try {
+      const result = await recalculatePriorities();
+      await queryClient.invalidateQueries();
+      toast.success(
+        `Recalculated ${result.stampsUpdated} stamp${result.stampsUpdated === 1 ? "" : "s"} and ${result.setsUpdated} set${result.setsUpdated === 1 ? "" : "s"}.`,
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Recalculating failed.");
+    } finally {
+      setRecalculating(false);
+      setConfirmOpen(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Dashboard</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold">Dashboard</h1>
+        <Button variant="outline" onClick={() => setConfirmOpen(true)} disabled={recalculating}>
+          {recalculating ? "Recalculating…" : "Recalculate priorities"}
+        </Button>
+      </div>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Recalculate priorities?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This works out the priority score and reasons again for every stamp and set from
+              details already saved. Nothing is sent to the AI and no other details change.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={recalculating}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                void runRecalculate();
+              }}
+              disabled={recalculating}
+            >
+              {recalculating ? "Working…" : "Recalculate"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <div className="grid gap-4 sm:grid-cols-3">
         <Card>
           <CardHeader>
