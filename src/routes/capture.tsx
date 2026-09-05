@@ -23,6 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ConfirmButton } from "@/components/confirm-button";
 import { supabase } from "@/integrations/supabase/client";
 import { identifyPage, type DetectedStamp } from "@/lib/identify.functions";
 import { fetchContainers, fetchPages, nextPageLabel, signedCaptureUrl } from "@/lib/triage";
@@ -73,12 +74,18 @@ function Capture() {
       );
       queryClient.invalidateQueries({ queryKey: ["pages"] });
       queryClient.invalidateQueries({ queryKey: ["stamps"] });
+      queryClient.invalidateQueries({ queryKey: ["page-stamp-counts"] });
+      queryClient.invalidateQueries({ queryKey: ["review-stamps"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
     onError: (error: Error) => toast.error(error.message),
   });
 
 
   const containerPages = pages.filter((page) => page.container_id === containerId);
+  const targetPage = result ? pages.find((page) => page.id === result.pageId) : undefined;
+  const isRerun =
+    !!targetPage && (targetPage.identify_status === "done" || targetPage.identify_status === "failed");
 
   const submit = useMutation({
     mutationFn: async () => {
@@ -203,13 +210,25 @@ function Capture() {
         <Button onClick={() => submit.mutate()} disabled={submit.isPending}>
           {submit.isPending ? "Uploading…" : "Save capture"}
         </Button>
-        <Button
-          variant="outline"
-          disabled={!result || identify.isPending}
-          onClick={() => result && identify.mutate(result.pageId)}
-        >
-          {identify.isPending ? "Identifying…" : "Identify stamps"}
-        </Button>
+        {isRerun ? (
+          <ConfirmButton
+            size="default"
+            label={identify.isPending ? "Identifying…" : "Re-run identification"}
+            title="Re-run identification?"
+            description="All existing stamp records for this page will be deleted and replaced, including any edits or confirmations."
+            actionLabel="Re-run"
+            disabled={identify.isPending}
+            onConfirm={() => result && identify.mutate(result.pageId)}
+          />
+        ) : (
+          <Button
+            variant="outline"
+            disabled={!result || identify.isPending}
+            onClick={() => result && identify.mutate(result.pageId)}
+          >
+            {identify.isPending ? "Identifying…" : "Identify stamps"}
+          </Button>
+        )}
       </div>
 
       {result ? (

@@ -29,6 +29,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ConfirmButton } from "@/components/confirm-button";
 import { supabase } from "@/integrations/supabase/client";
 import {
   CONTAINER_TYPES,
@@ -36,7 +37,9 @@ import {
   fetchPages,
   nextContainerLabel,
   nextPageLabel,
+  deletePageCompletely,
   type Container,
+  type Page,
 } from "@/lib/triage";
 
 const containersQuery = queryOptions({ queryKey: ["containers"], queryFn: fetchContainers });
@@ -100,6 +103,22 @@ function Containers() {
     onSuccess: (label) => {
       toast.success(`Page ${label} created`);
       queryClient.invalidateQueries({ queryKey: ["pages"] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const removePage = useMutation({
+    mutationFn: async (page: Page) => {
+      await deletePageCompletely(page);
+      return page.label;
+    },
+    onSuccess: (label) => {
+      toast.success(`Page ${label} deleted`);
+      queryClient.invalidateQueries({ queryKey: ["pages"] });
+      queryClient.invalidateQueries({ queryKey: ["page-stamp-counts"] });
+      queryClient.invalidateQueries({ queryKey: ["stamps"] });
+      queryClient.invalidateQueries({ queryKey: ["review-stamps"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -209,12 +228,13 @@ function Containers() {
                 <TableHead>Capture type</TableHead>
                 <TableHead>Identify status</TableHead>
                 <TableHead>Captured at</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {selectedPages.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-muted-foreground">
+                  <TableCell colSpan={5} className="text-muted-foreground">
                     No pages yet
                   </TableCell>
                 </TableRow>
@@ -226,6 +246,17 @@ function Containers() {
                     <TableCell>{page.identify_status}</TableCell>
                     <TableCell>
                       {page.captured_at ? new Date(page.captured_at).toLocaleString() : "—"}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <ConfirmButton
+                        label="Delete page"
+                        variant="destructive"
+                        title="Delete this page?"
+                        description="The page, its stamp records and its photo will be permanently removed. This cannot be undone."
+                        actionLabel="Delete page"
+                        disabled={removePage.isPending}
+                        onConfirm={() => removePage.mutate(page)}
+                      />
                     </TableCell>
                   </TableRow>
                 ))
