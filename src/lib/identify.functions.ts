@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { IDENTIFY_PROMPT } from "./identify-prompt";
-import { computePriority } from "./priority";
+import { computePriority, computeSetPriority } from "./priority";
 
 export type DetectedStamp = {
   id: string;
