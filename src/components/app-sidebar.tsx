@@ -1,6 +1,8 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { LayoutDashboard, Camera, CheckCircle2, Boxes, Stamp, Files } from "lucide-react";
 
+import { IdentifyRunIndicator } from "@/components/identify-run";
+
 import {
   Sidebar,
   SidebarContent,
@@ -43,6 +45,11 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+        <SidebarGroup>
+          <SidebarGroupContent className="px-2">
+            <IdentifyRunIndicator />
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>

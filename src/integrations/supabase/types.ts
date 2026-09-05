@@ -38,6 +38,36 @@ export type Database = {
         }
         Relationships: []
       }
+      identify_runs: {
+        Row: {
+          current_index: number
+          errors: Json
+          finished_at: string | null
+          id: string
+          page_ids: string[]
+          started_at: string
+          status: string
+        }
+        Insert: {
+          current_index?: number
+          errors?: Json
+          finished_at?: string | null
+          id?: string
+          page_ids?: string[]
+          started_at?: string
+          status?: string
+        }
+        Update: {
+          current_index?: number
+          errors?: Json
+          finished_at?: string | null
+          id?: string
+          page_ids?: string[]
+          started_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
       pages: {
         Row: {
           capture_type: string | null
@@ -100,6 +130,8 @@ export type Database = {
           page_id: string
           priority_reasons: string[]
           priority_score: number
+          research_brief: string | null
+          research_brief_generated_at: string | null
           review_status: string
           set_name: string
           significance: string | null
@@ -123,6 +155,8 @@ export type Database = {
           page_id: string
           priority_reasons?: string[]
           priority_score?: number
+          research_brief?: string | null
+          research_brief_generated_at?: string | null
           review_status?: string
           set_name: string
           significance?: string | null
@@ -146,6 +180,8 @@ export type Database = {
           page_id?: string
           priority_reasons?: string[]
           priority_score?: number
+          research_brief?: string | null
+          research_brief_generated_at?: string | null
           review_status?: string
           set_name?: string
           significance?: string | null
@@ -196,6 +232,8 @@ export type Database = {
           priority_reasons: string[]
           priority_score: number
           quantity: number
+          research_brief: string | null
+          research_brief_generated_at: string | null
           review_status: string
           set_id: string | null
           set_name: string | null
@@ -243,6 +281,8 @@ export type Database = {
           priority_reasons?: string[]
           priority_score?: number
           quantity?: number
+          research_brief?: string | null
+          research_brief_generated_at?: string | null
           review_status?: string
           set_id?: string | null
           set_name?: string | null
@@ -290,6 +330,8 @@ export type Database = {
           priority_reasons?: string[]
           priority_score?: number
           quantity?: number
+          research_brief?: string | null
+          research_brief_generated_at?: string | null
           review_status?: string
           set_id?: string | null
           set_name?: string | null

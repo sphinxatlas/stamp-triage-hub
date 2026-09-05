@@ -38,6 +38,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { IdentifyRunPanel, useIdentifyRun } from "@/components/identify-run";
 import { supabase } from "@/integrations/supabase/client";
 import { identifyPage } from "@/lib/identify.functions";
 import {
@@ -57,17 +58,6 @@ const countsQuery = queryOptions({
   queryFn: fetchPageStampCounts,
 });
 
-type RunState = "pending" | "running" | "done" | "failed";
-type RunItem = { id: string; label: string; state: RunState; error?: string };
-
-async function countSetsForPage(pageId: string) {
-  const { count, error } = await supabase
-    .from("stamp_sets")
-    .select("id", { count: "exact", head: true })
-    .eq("page_id", pageId);
-  if (error) return 0;
-  return count ?? 0;
-}
 
 
 async function fetchThumbnails(paths: string[]) {
@@ -112,12 +102,8 @@ function Pages() {
   const [containerFilter, setContainerFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [run, setRun] = useState<RunItem[] | null>(null);
-  const [runIndex, setRunIndex] = useState(0);
-  const [running, setRunning] = useState(false);
-  const [totals, setTotals] = useState({ stamps: 0, sets: 0 });
 
-  const identifyFn = useServerFn(identifyPage);
+  const { run, active: running, start: startRun } = useIdentifyRun();
 
   const paths = pages.map((page) => page.photo_path).filter((path): path is string => !!path);
   const { data: thumbs } = useSuspenseQuery(
@@ -153,6 +139,7 @@ function Pages() {
       "page-detail",
       "page-stamps",
       "stamps",
+      "review-queue",
       "review-stamps",
       "review-sets",
       "stamp-sets",
@@ -162,58 +149,8 @@ function Pages() {
     }
   }, [queryClient]);
 
-  useEffect(() => {
-    if (!running) return;
-    const handler = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = "";
-    };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, [running]);
-
   const labelOf = (id: string) => pages.find((page) => page.id === id)?.label ?? id;
 
-  const startRun = async (ids: string[]) => {
-    if (ids.length === 0) return;
-    setRunning(true);
-    setTotals({ stamps: 0, sets: 0 });
-    let items: RunItem[] = ids.map((id) => ({ id, label: labelOf(id), state: "pending" }));
-    setRun(items);
-    setRunIndex(0);
-    let stampTotal = 0;
-    let setTotal = 0;
-
-    for (let index = 0; index < ids.length; index += 1) {
-      const id = ids[index]!;
-      setRunIndex(index);
-      items = items.map((item) => (item.id === id ? { ...item, state: "running" } : item));
-      setRun(items);
-      try {
-        const result = await identifyFn({ data: { page_id: id } });
-        stampTotal += result.stamps.length;
-        setTotal += await countSetsForPage(id);
-        items = items.map((item) => (item.id === id ? { ...item, state: "done" } : item));
-      } catch (error) {
-        items = items.map((item) =>
-          item.id === id
-            ? { ...item, state: "failed", error: (error as Error).message ?? "Failed" }
-            : item,
-        );
-      }
-      setRun(items);
-      setTotals({ stamps: stampTotal, sets: setTotal });
-    }
-
-    setRunning(false);
-    const failed = items.filter((item) => item.state === "failed").length;
-    if (failed === 0) toast.success(`Identified ${items.length} page(s)`);
-    else toast.error(`${failed} page(s) failed`);
-    refreshAll();
-  };
-
-  const finished = run && !running;
-  const failedItems = (run ?? []).filter((item) => item.state === "failed");
 
   return (
     <div className="space-y-6">
@@ -302,48 +239,10 @@ function Pages() {
 
       {run ? (
         <section className="space-y-3 rounded-lg border p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-sm font-medium">
-              {running
-                ? `Page ${runIndex + 1} of ${run.length} — ${run[runIndex]?.label ?? ""}`
-                : `Finished — ${run.filter((item) => item.state === "done").length} succeeded, ${failedItems.length} failed`}
-            </h2>
-            {finished ? (
-              <div className="flex gap-2">
-                {failedItems.length > 0 ? (
-                  <Button
-                    size="sm"
-                    onClick={() => void startRun(failedItems.map((item) => item.id))}
-                  >
-                    Retry failed
-                  </Button>
-                ) : null}
-                <Button size="sm" variant="outline" onClick={() => setRun(null)}>
-                  Dismiss
-                </Button>
-              </div>
-            ) : null}
-          </div>
-          {finished ? (
-            <p className="text-sm text-muted-foreground">
-              {totals.stamps} stamp(s) and {totals.sets} set(s) created.
-            </p>
-          ) : null}
-          <ul className="space-y-1 text-sm">
-            {run.map((item) => (
-              <li key={item.id} className="flex flex-wrap items-center gap-2">
-                <span className="font-medium">{item.label}</span>
-                <Badge variant={item.state === "failed" ? "destructive" : "secondary"}>
-                  {item.state}
-                </Badge>
-                {item.error ? (
-                  <span className="text-muted-foreground">{item.error}</span>
-                ) : null}
-              </li>
-            ))}
-          </ul>
+          <IdentifyRunPanel />
         </section>
       ) : null}
+
 
       <Table>
         <TableHeader>

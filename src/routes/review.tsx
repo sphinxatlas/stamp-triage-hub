@@ -1,5 +1,6 @@
 import { queryOptions, useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -30,6 +31,13 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Toggle } from "@/components/ui/toggle";
 import {
+  PRIORITY_TIER_LABELS,
+  priorityTier,
+  priorityTierBadgeClass,
+  whyThisIsHere,
+} from "@/lib/priority";
+import { researchBrief } from "@/lib/research.functions";
+import {
   FAULT_OPTIONS,
   FORMAT_OPTIONS,
   GUM_OPTIONS,
@@ -38,7 +46,6 @@ import {
   fetchReviewQueue,
   fetchReviewSets,
   formatDenomination,
-  marketSearchPhrase,
   saveSet,
   saveStamp,
   type ReviewSet,
@@ -114,7 +121,8 @@ function toSetEdits(record: ReviewSet): SetEdits {
 
 function Review() {
   const { data } = useSuspenseQuery(queueQuery);
-  const { data: sets } = useSuspenseQuery(setsQuery);
+  const { data: setsData } = useSuspenseQuery(setsQuery);
+  const sets = setsData.sets;
   const [view, setView] = useState<"stamps" | "sets">("stamps");
   const [filter, setFilter] = useState<string>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -191,7 +199,7 @@ function Review() {
       </div>
 
       {view === "sets" ? (
-        <SetsPanel sets={visibleSets} />
+        <SetsPanel sets={visibleSets} photoUrls={setsData.photoUrls} />
       ) : visible.length === 0 ? (
         <p className="rounded-lg border p-6 text-muted-foreground">Nothing left to review</p>
       ) : (
@@ -223,6 +231,9 @@ function Review() {
                   </p>
                   <div className="flex flex-wrap gap-1">
                     <Badge variant="secondary">{stamp.review_status}</Badge>
+                    <Badge className={priorityTierBadgeClass(priorityTier(stamp.priority_score))}>
+                      {PRIORITY_TIER_LABELS[priorityTier(stamp.priority_score)]}
+                    </Badge>
                     {stamp.significance_level === "key_issue" ||
                     stamp.significance_level === "notable" ? (
                       <Badge className={SignificanceBadgeClass(stamp.significance_level)}>
@@ -230,6 +241,9 @@ function Review() {
                       </Badge>
                     ) : null}
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    {whyThisIsHere(stamp.priority_reasons)}
+                  </p>
                 </div>
               </button>
             ))}
@@ -509,14 +523,24 @@ function StampDetail({
           />
         </Field>
 
+        {priorityTier(stamp.priority_score) === "high" ? (
+          <ResearchBriefBlock
+            kind="stamp"
+            id={stamp.id}
+            brief={stamp.research_brief}
+            generatedAt={stamp.research_brief_generated_at}
+          />
+        ) : null}
+
         <MarketLookup
-          initialPhrase={marketSearchPhrase({
+          record={{
             country: edits.country,
-            year_estimate: edits.year_estimate,
+            year: edits.year_estimate,
             issue_name: edits.issue_name,
+            denomination: edits.denomination,
             catalogue_system: edits.catalogue_system,
-            catalogue_number: edits.catalogue_number,
-          })}
+            catalogue_reference: edits.catalogue_number,
+          }}
         />
 
         <Field label="Market notes">
@@ -597,7 +621,13 @@ function Reported({ label, value }: { label: string; value: string | null }) {
   );
 }
 
-function SetsPanel({ sets }: { sets: ReviewSet[] }) {
+function SetsPanel({
+  sets,
+  photoUrls,
+}: {
+  sets: ReviewSet[];
+  photoUrls: Record<string, string>;
+}) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -642,14 +672,36 @@ function SetsPanel({ sets }: { sets: ReviewSet[] }) {
             <p className="truncate text-xs text-muted-foreground">
               {[item.country, item.year_from].filter(Boolean).join(" · ") || "—"}
             </p>
+            {item.members.length > 0 ? (
+              <div className="flex items-center gap-1">
+                {item.members.slice(0, 4).map((member) => (
+                  <StampCrop
+                    key={member.id}
+                    photoUrl={member.photo_path ? photoUrls[member.photo_path] : undefined}
+                    bbox={member.bbox}
+                    label={item.set_name}
+                    className="h-12 w-10 shrink-0"
+                  />
+                ))}
+                {item.member_count > 4 ? (
+                  <span className="text-xs text-muted-foreground">
+                    +{item.member_count - 4} more
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
             <div className="flex flex-wrap gap-1">
               <Badge variant="secondary">{item.review_status}</Badge>
+              <Badge className={priorityTierBadgeClass(priorityTier(item.priority_score))}>
+                {PRIORITY_TIER_LABELS[priorityTier(item.priority_score)]}
+              </Badge>
               {item.significance_level === "key_issue" || item.significance_level === "notable" ? (
                 <Badge className={SignificanceBadgeClass(item.significance_level)}>
                   {SIGNIFICANCE_LABELS[item.significance_level]}
                 </Badge>
               ) : null}
             </div>
+            <p className="text-xs text-muted-foreground">{whyThisIsHere(item.priority_reasons)}</p>
           </button>
         ))}
       </div>
@@ -802,14 +854,23 @@ function SetDetail({ record, onRemoved }: { record: ReviewSet; onRemoved: () => 
           />
         </Field>
 
+        {priorityTier(record.priority_score) === "high" ? (
+          <ResearchBriefBlock
+            kind="set"
+            id={record.id}
+            brief={record.research_brief}
+            generatedAt={record.research_brief_generated_at}
+          />
+        ) : null}
+
         <MarketLookup
-          initialPhrase={marketSearchPhrase({
+          record={{
             country: edits.country,
-            year_from: edits.year_from,
-            set_name: edits.set_name,
+            year: edits.year_from,
+            issue_name: edits.set_name,
             catalogue_system: edits.catalogue_system,
-            catalogue_range: edits.catalogue_range,
-          })}
+            catalogue_reference: edits.catalogue_range,
+          }}
         />
 
         <Field label="Market notes">
@@ -844,5 +905,73 @@ function SetDetail({ record, onRemoved }: { record: ReviewSet; onRemoved: () => 
         </Button>
       </div>
     </div>
+  );
+}
+
+function ResearchBriefBlock({
+  kind,
+  id,
+  brief,
+  generatedAt,
+}: {
+  kind: "stamp" | "set";
+  id: string;
+  brief: string | null;
+  generatedAt: string | null;
+}) {
+  const queryClient = useQueryClient();
+  const generate = useServerFn(researchBrief);
+  const [text, setText] = useState(brief);
+  const [when, setWhen] = useState(generatedAt);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    setText(brief);
+    setWhen(generatedAt);
+  }, [brief, generatedAt, id]);
+
+  const run = async () => {
+    setBusy(true);
+    try {
+      const result = await generate({ data: { kind, id } });
+      setText(result.brief);
+      setWhen(result.generated_at);
+      queryClient.invalidateQueries({ queryKey: ["review-queue"] });
+      queryClient.invalidateQueries({ queryKey: ["review-sets"] });
+      toast.success("Research brief ready");
+    } catch (error) {
+      toast.error((error as Error).message || "Could not write the brief");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="space-y-3 rounded-lg border p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold">Research brief</h2>
+        <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void run()}>
+          {busy ? "Writing…" : text ? "Regenerate" : "Research brief"}
+        </Button>
+      </div>
+      {text ? (
+        <>
+          <p className="whitespace-pre-wrap text-sm">{text}</p>
+          {when ? (
+            <p className="text-xs text-muted-foreground">
+              Written {new Date(when).toLocaleString()}
+            </p>
+          ) : null}
+          <p className="text-xs text-muted-foreground">
+            This describes the item, not its price. Use the sold listings below for real prices, and
+            a professional valuation for a real figure.
+          </p>
+        </>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          Ask for a short plain-English brief on this item before taking it to a valuer.
+        </p>
+      )}
+    </section>
   );
 }

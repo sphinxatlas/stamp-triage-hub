@@ -236,6 +236,8 @@ export type ReviewStamp = {
   forgery_risk: string;
   variants_to_check: string | null;
   market_notes: string | null;
+  research_brief: string | null;
+  research_brief_generated_at: string | null;
   priority_score: number;
   priority_reasons: string[] | null;
   review_status: string;
@@ -382,10 +384,16 @@ export type ReviewSet = {
   forgery_risk: string;
   variants_to_check: string | null;
   market_notes: string | null;
+  research_brief: string | null;
+  research_brief_generated_at: string | null;
   created_at: string | null;
   page_label: string;
   container_label: string;
+  members: SetMember[];
+  member_count: number;
 };
+
+export type SetMember = { id: string; bbox: unknown; photo_path: string | null };
 
 export async function fetchReviewSets() {
   const { data, error } = await supabase
@@ -398,14 +406,55 @@ export async function fetchReviewSets() {
   const rows = (data ?? []) as unknown as Array<
     Record<string, unknown> & { pages: { label: string; containers: { label: string } } }
   >;
-  return rows.map((row) => {
+
+  const setIds = rows.map((row) => String(row["id"]));
+  const membersBySet: Record<string, SetMember[]> = {};
+  const paths = new Set<string>();
+
+  if (setIds.length > 0) {
+    const { data: memberRows, error: memberError } = await supabase
+      .from("stamps")
+      .select("id, set_id, bbox, pages!inner(photo_path)")
+      .in("set_id", setIds)
+      .order("position_index", { ascending: true });
+    if (memberError) throw memberError;
+    for (const row of (memberRows ?? []) as unknown as Array<{
+      id: string;
+      set_id: string | null;
+      bbox: unknown;
+      pages: { photo_path: string | null };
+    }>) {
+      if (!row.set_id) continue;
+      const list = (membersBySet[row.set_id] ??= []);
+      list.push({ id: row.id, bbox: row.bbox, photo_path: row.pages.photo_path });
+      if (row.pages.photo_path) paths.add(row.pages.photo_path);
+    }
+  }
+
+  const photoUrls: Record<string, string> = {};
+  if (paths.size > 0) {
+    const signed = await supabase.storage
+      .from("captures")
+      .createSignedUrls(Array.from(paths), 3600);
+    if (signed.error) throw signed.error;
+    for (const item of signed.data ?? []) {
+      if (item.path && item.signedUrl) photoUrls[item.path] = item.signedUrl;
+    }
+  }
+
+  const sets = rows.map((row) => {
     const { pages, ...rest } = row;
+    const members = membersBySet[String(row["id"])] ?? [];
     return {
       ...(rest as unknown as ReviewSet),
       page_label: pages.label,
       container_label: pages.containers.label,
+      members: members.filter((member) => parseBbox(member.bbox) !== null),
+      member_count: members.length,
     } as ReviewSet;
   });
+
+  return { sets, photoUrls };
 }
 
 export type SetEdits = {
