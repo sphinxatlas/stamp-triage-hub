@@ -34,9 +34,12 @@ import {
 import { researchBrief } from "@/lib/research.functions";
 import { fetchBriefTargets, fetchPages } from "@/lib/triage";
 
+type BriefProgress = { label: string; done: number; total: number } | null;
+
 type Ctx = {
   run: IdentifyRun | null;
   active: boolean;
+  briefs: BriefProgress;
   start: (pageIds: string[]) => void;
   cancel: () => void;
   openPanel: () => void;
