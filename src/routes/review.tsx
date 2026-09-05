@@ -529,6 +529,13 @@ function StampDetail({
             id={stamp.id}
             brief={stamp.research_brief}
             generatedAt={stamp.research_brief_generated_at}
+            value={{
+              low: stamp.value_low,
+              high: stamp.value_high,
+              confidence: stamp.value_confidence,
+              basis: stamp.value_basis,
+              estimatedAt: stamp.value_estimated_at,
+            }}
           />
         ) : null}
 
@@ -860,6 +867,13 @@ function SetDetail({ record, onRemoved }: { record: ReviewSet; onRemoved: () => 
             id={record.id}
             brief={record.research_brief}
             generatedAt={record.research_brief_generated_at}
+            value={{
+              low: record.value_low,
+              high: record.value_high,
+              confidence: record.value_confidence,
+              basis: record.value_basis,
+              estimatedAt: record.value_estimated_at,
+            }}
           />
         ) : null}
 
