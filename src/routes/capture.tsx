@@ -203,16 +203,13 @@ function Capture() {
         <Button onClick={() => submit.mutate()} disabled={submit.isPending}>
           {submit.isPending ? "Uploading…" : "Save capture"}
         </Button>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span>
-              <Button variant="outline" disabled>
-                Identify stamps
-              </Button>
-            </span>
-          </TooltipTrigger>
-          <TooltipContent>Coming soon</TooltipContent>
-        </Tooltip>
+        <Button
+          variant="outline"
+          disabled={!result || identify.isPending}
+          onClick={() => result && identify.mutate(result.pageId)}
+        >
+          {identify.isPending ? "Identifying…" : "Identify stamps"}
+        </Button>
       </div>
 
       {result ? (
@@ -221,6 +218,48 @@ function Capture() {
           <img src={result.url} alt={`Capture for ${result.label}`} className="max-h-80 rounded" />
         </div>
       ) : null}
+
+      {detected ? (
+        <div className="rounded-lg border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>#</TableHead>
+                <TableHead>Country</TableHead>
+                <TableHead>Denomination</TableHead>
+                <TableHead>Year</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Confidence</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {detected.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7}>No stamps were detected on this page.</TableCell>
+                </TableRow>
+              ) : (
+                detected.map((stamp, index) => (
+                  <TableRow key={String(stamp["id"] ?? index)}>
+                    <TableCell>{String(stamp["position_index"] ?? index)}</TableCell>
+                    <TableCell>{(stamp["country"] as string) ?? "—"}</TableCell>
+                    <TableCell>{(stamp["denomination"] as string) ?? "—"}</TableCell>
+                    <TableCell>{(stamp["year_estimate"] as number) ?? "—"}</TableCell>
+                    <TableCell>{stamp["item_type"] as string}</TableCell>
+                    <TableCell>
+                      {stamp["confidence"] === null || stamp["confidence"] === undefined
+                        ? "—"
+                        : Number(stamp["confidence"]).toFixed(2)}
+                    </TableCell>
+                    <TableCell>{stamp["review_status"] as string}</TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      ) : null}
+
     </div>
   );
 }
