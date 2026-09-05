@@ -411,13 +411,18 @@ export type ReviewSet = {
 
 export type SetMember = { id: string; bbox: unknown; photo_path: string | null };
 
-export async function fetchReviewSets() {
-  const { data, error } = await supabase
+export async function fetchAllSets() {
+  return fetchReviewSets(null);
+}
+
+export async function fetchReviewSets(statuses: string[] | null = ["pending", "flagged_expert"]) {
+  let query = supabase
     .from("stamp_sets")
-    .select("*, pages!inner(label, containers!inner(label))")
-    .in("review_status", ["pending", "flagged_expert"])
-    .order("created_at", { ascending: false });
+    .select("*, pages!inner(label, containers!inner(label))");
+  if (statuses) query = query.in("review_status", statuses);
+  const { data, error } = await query.order("created_at", { ascending: false });
   if (error) throw error;
+
 
   const rows = (data ?? []) as unknown as Array<
     Record<string, unknown> & { pages: { label: string; containers: { label: string } } }
