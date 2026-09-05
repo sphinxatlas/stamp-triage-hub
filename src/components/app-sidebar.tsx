@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Camera, CheckCircle2, Boxes, Stamp, Files } from "lucide-react";
+import { LayoutDashboard, Camera, Boxes, Stamp, Files, Download } from "lucide-react";
 
 import { IdentifyRunIndicator } from "@/components/identify-run";
 
@@ -18,9 +18,9 @@ const items = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Capture", url: "/capture", icon: Camera },
   { title: "Pages", url: "/pages", icon: Files },
-  { title: "Review", url: "/review", icon: CheckCircle2 },
   { title: "Containers", url: "/containers", icon: Boxes },
   { title: "Stamps", url: "/stamps", icon: Stamp },
+  { title: "Export", url: "/export", icon: Download },
 ] as const;
 
 

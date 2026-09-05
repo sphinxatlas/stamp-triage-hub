@@ -19,8 +19,6 @@ const MODEL = "google/gemini-3.1-pro-preview";
 
 const ITEM_TYPES = ["postage", "revenue", "cinderella", "label", "unknown"] as const;
 const FORMATS = ["single", "block", "sheet", "on_cover", "se_tenant"] as const;
-const SIGNIFICANCE_LEVELS = ["key_issue", "notable", "ordinary", "unknown"] as const;
-const FORGERY_RISKS = ["high", "medium", "low", "unknown"] as const;
 
 function pick<T extends readonly string[]>(value: unknown, allowed: T, fallback: T[number]) {
   return typeof value === "string" && (allowed as readonly string[]).includes(value)
@@ -213,9 +211,6 @@ export const identifyPage = createServerFn({ method: "POST" })
         const itemType = pick(stamp["item_type"], ITEM_TYPES, "unknown");
         const yearEstimate = num(stamp["year_estimate"]);
         const format = pick(stamp["format"], FORMATS, "single");
-        const significanceLevel = pick(stamp["significance_level"], SIGNIFICANCE_LEVELS, "unknown");
-        const forgeryRisk = pick(stamp["forgery_risk"], FORGERY_RISKS, "unknown");
-        const variants = str(stamp["variants_to_check"]);
         const country = str(stamp["country"]);
         const denomination = str(stamp["denomination"]);
         const currency = str(stamp["currency"]);
@@ -231,9 +226,6 @@ export const identifyPage = createServerFn({ method: "POST" })
               ? "auto_accepted"
               : "pending";
         const priority = computePriority({
-          significance_level: significanceLevel,
-          forgery_risk: forgeryRisk,
-          variants_to_check: variants,
           confidence,
           year_estimate: yearEstimate,
           format,
@@ -262,7 +254,6 @@ export const identifyPage = createServerFn({ method: "POST" })
           catalogue_confidence: num(stamp["catalogue_confidence"]),
           item_type: itemType,
           mint_or_used: str(stamp["mint_or_used"]),
-          hinged_guess: str(stamp["hinged_guess"]),
           gum_state: "unknown",
           format,
           is_overprinted: isOverprinted,
@@ -273,14 +264,9 @@ export const identifyPage = createServerFn({ method: "POST" })
             : [],
           perforation: null,
           watermark: null,
-          condition_notes: str(stamp["condition_notes"]),
           confidence,
           review_status: reviewStatus,
-          notes: str(stamp["reasoning"]),
-          significance: str(stamp["significance"]),
-          significance_level: significanceLevel,
-          forgery_risk: forgeryRisk,
-          variants_to_check: variants,
+          notes: str(stamp["note"]),
           priority_score: priority.score,
           priority_reasons: priority.reasons as string[],
         };
@@ -292,9 +278,6 @@ export const identifyPage = createServerFn({ method: "POST" })
         const name = str(item["set_name"]);
         if (!name) continue;
         const confidence = num(item["confidence"]);
-        const significanceLevel = pick(item["significance_level"], SIGNIFICANCE_LEVELS, "unknown");
-        const forgeryRisk = pick(item["forgery_risk"], FORGERY_RISKS, "unknown");
-        const variants = str(item["variants_to_check"]);
         const yearFrom = num(item["year_from"]);
         const expectedCount = num(item["item_count"]);
 
@@ -328,14 +311,10 @@ export const identifyPage = createServerFn({ method: "POST" })
             catalogue_range: str(item["catalogue_range"]),
             item_count: expectedCount === null ? null : Math.round(expectedCount),
             confidence,
-            notes: str(item["reasoning"]),
+            notes: str(item["note"]) ?? str(item["reasoning"]),
             review_status: item["needs_review"] === true ? "flagged_expert" : "pending",
             priority_score: priority.score,
             priority_reasons: priority.reasons,
-            significance: str(item["significance"]),
-            significance_level: significanceLevel,
-            forgery_risk: forgeryRisk,
-            variants_to_check: variants,
           } as never)
           .select("id")
           .single();

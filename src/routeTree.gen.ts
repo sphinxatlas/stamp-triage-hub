@@ -12,8 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CaptureRouteImport } from './routes/capture'
 import { Route as ContainersRouteImport } from './routes/containers'
+import { Route as ExportRouteImport } from './routes/export'
 import { Route as PagesRouteImport } from './routes/pages'
-import { Route as ReviewRouteImport } from './routes/review'
 import { Route as StampsRouteImport } from './routes/stamps'
 
 const IndexRoute = IndexRouteImport.update({
@@ -31,14 +31,14 @@ const ContainersRoute = ContainersRouteImport.update({
   path: '/containers',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ExportRoute = ExportRouteImport.update({
+  id: '/export',
+  path: '/export',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PagesRoute = PagesRouteImport.update({
   id: '/pages',
   path: '/pages',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ReviewRoute = ReviewRouteImport.update({
-  id: '/review',
-  path: '/review',
   getParentRoute: () => rootRouteImport,
 } as any)
 const StampsRoute = StampsRouteImport.update({
@@ -51,16 +51,16 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/capture': typeof CaptureRoute
   '/containers': typeof ContainersRoute
+  '/export': typeof ExportRoute
   '/pages': typeof PagesRoute
-  '/review': typeof ReviewRoute
   '/stamps': typeof StampsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/capture': typeof CaptureRoute
   '/containers': typeof ContainersRoute
+  '/export': typeof ExportRoute
   '/pages': typeof PagesRoute
-  '/review': typeof ReviewRoute
   '/stamps': typeof StampsRoute
 }
 export interface FileRoutesById {
@@ -68,22 +68,22 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/capture': typeof CaptureRoute
   '/containers': typeof ContainersRoute
+  '/export': typeof ExportRoute
   '/pages': typeof PagesRoute
-  '/review': typeof ReviewRoute
   '/stamps': typeof StampsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/capture' | '/containers' | '/pages' | '/review' | '/stamps'
+  fullPaths: '/' | '/capture' | '/containers' | '/export' | '/pages' | '/stamps'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/capture' | '/containers' | '/pages' | '/review' | '/stamps'
+  to: '/' | '/capture' | '/containers' | '/export' | '/pages' | '/stamps'
   id:
     | '__root__'
     | '/'
     | '/capture'
     | '/containers'
+    | '/export'
     | '/pages'
-    | '/review'
     | '/stamps'
   fileRoutesById: FileRoutesById
 }
@@ -91,8 +91,8 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CaptureRoute: typeof CaptureRoute
   ContainersRoute: typeof ContainersRoute
+  ExportRoute: typeof ExportRoute
   PagesRoute: typeof PagesRoute
-  ReviewRoute: typeof ReviewRoute
   StampsRoute: typeof StampsRoute
 }
 
@@ -119,18 +119,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ContainersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/export': {
+      id: '/export'
+      path: '/export'
+      fullPath: '/export'
+      preLoaderRoute: typeof ExportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/pages': {
       id: '/pages'
       path: '/pages'
       fullPath: '/pages'
       preLoaderRoute: typeof PagesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/review': {
-      id: '/review'
-      path: '/review'
-      fullPath: '/review'
-      preLoaderRoute: typeof ReviewRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/stamps': {
@@ -147,8 +147,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CaptureRoute: CaptureRoute,
   ContainersRoute: ContainersRoute,
+  ExportRoute: ExportRoute,
   PagesRoute: PagesRoute,
-  ReviewRoute: ReviewRoute,
   StampsRoute: StampsRoute,
 }
 export const routeTree = rootRouteImport

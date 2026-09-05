@@ -1,15 +1,9 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 
-import {
-  MarketLookup,
-  SIGNIFICANCE_LABELS,
-  SignificanceBadgeClass,
-} from "@/components/market-lookup";
+import { MarketLookup } from "@/components/market-lookup";
 import { PageWithBox, StampCrop } from "@/components/stamp-crop";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -29,8 +23,6 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Toggle } from "@/components/ui/toggle";
-import { priorityTier } from "@/lib/priority";
-import { researchBrief } from "@/lib/research.functions";
 import {
   FAULT_OPTIONS,
   FORMAT_OPTIONS,
@@ -45,7 +37,6 @@ import {
   type SetEdits,
   type StampEdits,
 } from "@/lib/triage";
-import { cn } from "@/lib/utils";
 
 export function toEdits(stamp: ReviewStamp): StampEdits {
   return {
@@ -225,25 +216,12 @@ export function StampDetail({
           <Reported label="Item type" value={stamp.item_type} />
           <Reported label="Format" value={stamp.format} />
           <Reported label="Mint or used" value={stamp.mint_or_used} />
-          <Reported label="Hinged guess" value={stamp.hinged_guess} />
           <Reported label="Faults" value={stamp.faults?.length ? stamp.faults.join(", ") : null} />
-          <Reported label="Condition notes" value={stamp.condition_notes} />
           <Reported label="Overall confidence" value={confidence(stamp.confidence)} />
           <Reported label="Year confidence" value={confidence(stamp.year_confidence)} />
           <Reported label="Catalogue confidence" value={confidence(stamp.catalogue_confidence)} />
-          <Reported label="Reasoning" value={stamp.notes} />
+          <Reported label="Note" value={stamp.notes} />
         </dl>
-        <div className="space-y-2 border-t pt-3">
-          <Badge className={SignificanceBadgeClass(stamp.significance_level)}>
-            {SIGNIFICANCE_LABELS[stamp.significance_level] ?? stamp.significance_level}
-          </Badge>
-          <p className="text-sm">{stamp.significance ?? "No note on how this issue is regarded."}</p>
-          <h3 className="text-xs font-semibold">What to have an expert check</h3>
-          <dl className="grid gap-2 text-sm sm:grid-cols-2">
-            <Reported label="Forgery risk" value={stamp.forgery_risk} />
-            <Reported label="Variants to check" value={stamp.variants_to_check} />
-          </dl>
-        </div>
         <p className="text-xs text-muted-foreground">These are unverified machine guesses.</p>
       </section>
 
@@ -389,21 +367,6 @@ export function StampDetail({
           />
         </Field>
 
-        {priorityTier(stamp.priority_score) === "high" ? (
-          <ResearchBriefBlock
-            kind="stamp"
-            id={stamp.id}
-            brief={stamp.research_brief}
-            generatedAt={stamp.research_brief_generated_at}
-            value={{
-              low: stamp.value_low,
-              high: stamp.value_high,
-              confidence: stamp.value_confidence,
-              basis: stamp.value_basis,
-              estimatedAt: stamp.value_estimated_at,
-            }}
-          />
-        ) : null}
 
         <MarketLookup
           record={{
@@ -427,14 +390,7 @@ export function StampDetail({
 
       <div className="flex flex-wrap gap-2">
         <Button disabled={decide.isPending} onClick={() => decide.mutate("confirmed")}>
-          Confirm
-        </Button>
-        <Button
-          variant="outline"
-          disabled={decide.isPending}
-          onClick={() => decide.mutate("flagged_expert")}
-        >
-          Flag for expert
+          Save
         </Button>
         <Button
           variant="destructive"
@@ -442,9 +398,6 @@ export function StampDetail({
           onClick={() => decide.mutate("rejected")}
         >
           Not a stamp
-        </Button>
-        <Button variant="ghost" disabled={decide.isPending} onClick={() => decide.mutate(undefined)}>
-          Save without deciding
         </Button>
       </div>
     </div>
@@ -525,19 +478,8 @@ export function SetDetail({
               record.priority_reasons?.length ? ` (${record.priority_reasons.join(", ")})` : ""
             }`}
           />
-          <Reported label="Reasoning" value={record.notes} />
+          <Reported label="Note" value={record.notes} />
         </dl>
-        <div className="space-y-2 border-t pt-3">
-          <Badge className={SignificanceBadgeClass(record.significance_level)}>
-            {SIGNIFICANCE_LABELS[record.significance_level] ?? record.significance_level}
-          </Badge>
-          <p className="text-sm">{record.significance ?? "No note on how this set is regarded."}</p>
-          <h3 className="text-xs font-semibold">What to have an expert check</h3>
-          <dl className="grid gap-2 text-sm sm:grid-cols-2">
-            <Reported label="Forgery risk" value={record.forgery_risk} />
-            <Reported label="Variants to check" value={record.variants_to_check} />
-          </dl>
-        </div>
         <p className="text-xs text-muted-foreground">These are unverified machine guesses.</p>
       </section>
 
@@ -604,21 +546,6 @@ export function SetDetail({
           />
         </Field>
 
-        {priorityTier(record.priority_score) === "high" ? (
-          <ResearchBriefBlock
-            kind="set"
-            id={record.id}
-            brief={record.research_brief}
-            generatedAt={record.research_brief_generated_at}
-            value={{
-              low: record.value_low,
-              high: record.value_high,
-              confidence: record.value_confidence,
-              basis: record.value_basis,
-              estimatedAt: record.value_estimated_at,
-            }}
-          />
-        ) : null}
 
         <MarketLookup
           record={{
@@ -641,216 +568,16 @@ export function SetDetail({
 
       <div className="flex flex-wrap gap-2">
         <Button disabled={decide.isPending} onClick={() => decide.mutate("confirmed")}>
-          Confirm
-        </Button>
-        <Button
-          variant="outline"
-          disabled={decide.isPending}
-          onClick={() => decide.mutate("flagged_expert")}
-        >
-          Flag for expert
+          Save
         </Button>
         <Button
           variant="destructive"
           disabled={decide.isPending}
           onClick={() => decide.mutate("rejected")}
         >
-          Reject set
-        </Button>
-        <Button variant="ghost" disabled={decide.isPending} onClick={() => decide.mutate(undefined)}>
-          Save without deciding
+          Not a set
         </Button>
       </div>
     </div>
-  );
-}
-
-type EstimateView = {
-  low: number | null;
-  high: number | null;
-  confidence: number | null;
-  basis: string | null;
-  estimatedAt: string | null;
-  catalogueLow?: number | null;
-  catalogueHigh?: number | null;
-  unknown?: string | null;
-};
-
-function euro(value: number | null | undefined) {
-  return value === null || value === undefined ? "?" : `EUR ${value.toLocaleString("en-GB")}`;
-}
-
-function EstimateBlock({ estimate }: { estimate: EstimateView }) {
-  const has = estimate.high !== null || estimate.low !== null;
-  const low = (estimate.confidence ?? 0) < 0.4;
-
-  return (
-    <div
-      className={cn(
-        "space-y-2 rounded-md border p-3",
-        (!has || low) && "bg-muted/40 text-muted-foreground",
-      )}
-    >
-      <div className="flex flex-wrap items-center gap-2">
-        <h3 className="text-sm font-semibold">Rough estimate, not a valuation</h3>
-        {has && low ? <Badge variant="secondary">Low confidence guess</Badge> : null}
-      </div>
-
-      {has ? (
-        <>
-          <p className="text-base font-semibold text-foreground">
-            Possible realistic sale: {euro(estimate.low)} to {euro(estimate.high)}
-          </p>
-          {estimate.catalogueLow !== null && estimate.catalogueLow !== undefined ? (
-            <p className="text-sm">
-              Catalogue reference: {euro(estimate.catalogueLow)} to {euro(estimate.catalogueHigh)}
-            </p>
-          ) : null}
-          {estimate.basis ? <p className="text-sm">{estimate.basis}</p> : null}
-          {estimate.confidence !== null ? (
-            <p className="text-sm">Confidence: {Math.round(estimate.confidence * 100)}%</p>
-          ) : null}
-          {estimate.unknown ? (
-            <div>
-              <h4 className="text-sm font-medium">What would change this</h4>
-              <p className="text-sm">{estimate.unknown}</p>
-            </div>
-          ) : null}
-          <p className="text-xs">
-            This number was produced by an AI from a photograph. It has not seen the gum, the
-            perforations or the back of the stamp, and those decide most of the value. Treat it as a
-            rough sort order, not a price. The sold listings below show what copies actually went
-            for.
-          </p>
-        </>
-      ) : (
-        <p className="text-sm">
-          {estimate.basis ?? "No figure given: the AI did not recognise this issue well enough."}
-        </p>
-      )}
-    </div>
-  );
-}
-
-const BRIEF_LABELS = [
-  "What it is",
-  "Why it matters",
-  "What decides its worth",
-  "Get checked",
-] as const;
-
-export function briefEntries(text: string) {
-  const found: Array<{ label: string; index: number }> = [];
-  for (const label of BRIEF_LABELS) {
-    const match = new RegExp(`(^|\\n)\\s*\\*{0,2}${label}\\*{0,2}\\s*[:.\\-]`, "i").exec(text);
-    if (match) found.push({ label, index: match.index + (match[1] ? match[1].length : 0) });
-  }
-  found.sort((a, b) => a.index - b.index);
-  if (found.length === 0) return null;
-
-  return found.map((entry, position) => {
-    const end = position + 1 < found.length ? found[position + 1]!.index : text.length;
-    const chunk = text.slice(entry.index, end);
-    const value = chunk
-      .replace(new RegExp(`^\\s*\\*{0,2}${entry.label}\\*{0,2}\\s*[:.\\-]\\s*`, "i"), "")
-      .replace(/\s+/g, " ")
-      .trim();
-    return { label: entry.label, value };
-  });
-}
-
-export function ResearchBriefBlock({
-  kind,
-  id,
-  brief,
-  generatedAt,
-  value,
-}: {
-  kind: "stamp" | "set";
-  id: string;
-  brief: string | null;
-  generatedAt: string | null;
-  value: EstimateView;
-}) {
-  const queryClient = useQueryClient();
-  const generate = useServerFn(researchBrief);
-  const [text, setText] = useState(brief);
-  const [when, setWhen] = useState(generatedAt);
-  const [estimate, setEstimate] = useState<EstimateView>(value);
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    setText(brief);
-    setWhen(generatedAt);
-    setEstimate(value);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [brief, generatedAt, id]);
-
-  const run = async () => {
-    setBusy(true);
-    try {
-      const result = await generate({ data: { kind, id } });
-      setText(result.brief);
-      setWhen(result.generated_at);
-      setEstimate({
-        low: result.estimate.can_estimate ? result.estimate.realistic_low : null,
-        high: result.estimate.can_estimate ? result.estimate.realistic_high : null,
-        confidence: result.estimate.can_estimate ? result.estimate.confidence : null,
-        basis: result.estimate.basis || result.value_basis,
-        estimatedAt: result.generated_at,
-        catalogueLow: result.estimate.can_estimate ? result.estimate.catalogue_low : null,
-        catalogueHigh: result.estimate.can_estimate ? result.estimate.catalogue_high : null,
-        unknown: result.estimate.biggest_unknown,
-      });
-      for (const key of ["review-queue", "review-sets", "browse-stamps", "browse-sets", "stamps", "dashboard"]) {
-        queryClient.invalidateQueries({ queryKey: [key] });
-      }
-      toast.success("Research brief ready");
-    } catch (error) {
-      toast.error((error as Error).message || "Could not write the brief");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const entries = text ? briefEntries(text) : null;
-
-  return (
-    <section className="space-y-3 rounded-lg border p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold">Research brief</h2>
-        <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void run()}>
-          {busy ? "Writing…" : text ? "Regenerate" : "Research brief"}
-        </Button>
-      </div>
-      {text ? (
-        <>
-          {entries ? (
-            <dl className="grid gap-x-4 gap-y-1 text-sm sm:grid-cols-[minmax(0,10rem)_1fr]">
-              {entries.map((entry) => (
-                <div key={entry.label} className="sm:contents">
-                  <dt className="font-medium">{entry.label}</dt>
-                  <dd className="mb-1 text-muted-foreground sm:mb-0">{entry.value}</dd>
-                </div>
-              ))}
-            </dl>
-          ) : (
-            <p className="whitespace-pre-wrap text-sm">{text}</p>
-          )}
-          {when ? (
-            <p className="text-xs text-muted-foreground">Written {new Date(when).toLocaleString()}</p>
-          ) : null}
-          <p className="text-xs text-muted-foreground">
-            This describes the item, not its price. Use the sold listings below for real prices, and
-            a professional valuation for a real figure.
-          </p>
-          {estimate.estimatedAt || estimate.basis ? <EstimateBlock estimate={estimate} /> : null}
-        </>
-      ) : (
-        <p className="text-sm text-muted-foreground">
-          Ask for a short plain-English brief and a rough value estimate for this item.
-        </p>
-      )}
-    </section>
   );
 }

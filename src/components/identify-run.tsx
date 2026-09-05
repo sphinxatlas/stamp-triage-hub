@@ -31,15 +31,12 @@ import {
   type IdentifyRun,
   type RunError,
 } from "@/lib/runs";
-import { researchBrief } from "@/lib/research.functions";
-import { fetchBriefTargets, fetchPages } from "@/lib/triage";
+import { fetchPages } from "@/lib/triage";
 
-type BriefProgress = { label: string; done: number; total: number } | null;
 
 type Ctx = {
   run: IdentifyRun | null;
   active: boolean;
-  briefs: BriefProgress;
   start: (pageIds: string[]) => void;
   cancel: () => void;
   openPanel: () => void;
@@ -57,9 +54,7 @@ export function useIdentifyRun() {
 export function IdentifyRunProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const identifyFn = useServerFn(identifyPage);
-  const briefFn = useServerFn(researchBrief);
   const [panelOpen, setPanelOpen] = useState(false);
-  const [briefs, setBriefs] = useState<BriefProgress>(null);
   const workingRef = useRef<string | null>(null);
 
   const { data: run = null } = useQuery({
@@ -117,11 +112,9 @@ export function IdentifyRunProvider({ children }: { children: ReactNode }) {
         const pageId = run.page_ids[index]!;
         await patchRun(run.id, { current_index: index });
         queryClient.invalidateQueries({ queryKey: ["identify-run"] });
-        let identified = true;
         try {
           await identifyFn({ data: { page_id: pageId } });
         } catch (error) {
-          identified = false;
           errors.push({
             page_id: pageId,
             label: labelOf(pageId),
@@ -132,28 +125,6 @@ export function IdentifyRunProvider({ children }: { children: ReactNode }) {
         // Results are written per page, so finished pages are reviewable straight away.
         refreshAll();
 
-        // Every new stamp and set gets its research brief and value estimate here,
-        // one at a time, so the review queue is already filled in.
-        if (identified) {
-          try {
-            const targets = await fetchBriefTargets(pageId);
-            for (let i = 0; i < targets.length; i += 1) {
-              const target = targets[i]!;
-              const runStatus = await fetchRunStatus(run.id).catch(() => "cancelled");
-              if (runStatus !== "running") break;
-              setBriefs({ label: target.label, done: i, total: targets.length });
-              try {
-                await briefFn({ data: { kind: target.kind, id: target.id } });
-              } catch {
-                // A failed brief must not stop identification of the remaining pages.
-              }
-              refreshAll();
-            }
-          } catch {
-            // Ignore: briefs are an extra, identification results are already saved.
-          }
-          setBriefs(null);
-        }
       }
 
       const finalStatus = await fetchRunStatus(run.id).catch(() => "cancelled");
@@ -172,7 +143,7 @@ export function IdentifyRunProvider({ children }: { children: ReactNode }) {
     };
 
     void work();
-  }, [run, identifyFn, briefFn, labelOf, refreshAll, queryClient]);
+  }, [run, identifyFn, labelOf, refreshAll, queryClient]);
 
   useEffect(() => {
     if (!active) return;
@@ -208,7 +179,6 @@ export function IdentifyRunProvider({ children }: { children: ReactNode }) {
     () => ({
       run,
       active,
-      briefs,
       start: (pageIds: string[]) => {
         if (pageIds.length === 0 || active) return;
         startMutation.mutate(pageIds);
@@ -217,7 +187,7 @@ export function IdentifyRunProvider({ children }: { children: ReactNode }) {
       openPanel: () => setPanelOpen(true),
       labelOf,
     }),
-    [run, active, briefs, startMutation, cancelMutation, labelOf],
+    [run, active, startMutation, cancelMutation, labelOf],
   );
 
   return (
@@ -240,7 +210,7 @@ export function IdentifyRunProvider({ children }: { children: ReactNode }) {
 }
 
 export function IdentifyRunPanel() {
-  const { run, active, briefs, cancel, labelOf } = useIdentifyRun();
+  const { run, active, cancel, labelOf } = useIdentifyRun();
   if (!run) return <p className="text-sm text-muted-foreground">No runs yet.</p>;
 
   const total = run.page_ids.length;
@@ -265,12 +235,6 @@ export function IdentifyRunPanel() {
         ) : null}
       </div>
 
-      {briefs ? (
-        <p className="text-sm text-muted-foreground">
-          Writing research notes: {Math.min(briefs.done + 1, briefs.total)} of {briefs.total} —{" "}
-          {briefs.label}
-        </p>
-      ) : null}
 
       <ul className="max-h-64 space-y-1 overflow-auto text-sm">
         {run.page_ids.map((id, index) => {
@@ -309,7 +273,7 @@ function RetryFailed({ errors }: { errors: RunError[] }) {
 }
 
 export function IdentifyRunIndicator() {
-  const { run, active, briefs, openPanel } = useIdentifyRun();
+  const { run, active, openPanel } = useIdentifyRun();
   if (!active || !run) return null;
   return (
     <button
@@ -321,11 +285,6 @@ export function IdentifyRunIndicator() {
         Identifying: {Math.min(run.current_index + 1, run.page_ids.length)} of{" "}
         {run.page_ids.length}
       </span>
-      {briefs ? (
-        <span className="block font-normal">
-          Notes {Math.min(briefs.done + 1, briefs.total)} of {briefs.total}
-        </span>
-      ) : null}
     </button>
   );
 }

@@ -1,7 +1,4 @@
 export type PriorityInput = {
-  significance_level?: string | null;
-  forgery_risk?: string | null;
-  variants_to_check?: string | null;
   confidence?: number | null;
   year_estimate?: number | null;
   format?: string | null;
@@ -51,9 +48,6 @@ export function computePriority(input: PriorityInput): Priority {
     reasons.push(reason);
   };
 
-  if (input.significance_level === "key_issue") add(45, "Known key issue");
-  if (input.significance_level === "notable") add(20, "Notable issue");
-
   if (input.is_overprinted === true) add(30, "Overprint or surcharge");
 
   const year = typeof input.year_estimate === "number" ? input.year_estimate : null;
@@ -73,8 +67,6 @@ export function computePriority(input: PriorityInput): Priority {
     }
   }
 
-  if (input.forgery_risk === "high") add(15, "Commonly forged, needs checking");
-
   const denominationValue = leadingNumber(input.denomination);
   const currency = input.currency?.trim().toLowerCase() ?? "";
   if (
@@ -88,11 +80,10 @@ export function computePriority(input: PriorityInput): Priority {
 
   if (!country) add(15, "Country not identified");
 
-  if (input.variants_to_check && input.variants_to_check.trim()) add(10, "Variant-sensitive");
-
   if (typeof input.confidence === "number" && input.confidence < 0.6) add(10, "Low confidence");
 
   if (year !== null && year >= 1970) add(-30, "Modern issue");
+
 
   if (
     input.item_type === "revenue" ||
@@ -150,8 +141,8 @@ export const PRIORITY_TIER_LABELS: Record<PriorityTier, string> = {
 
 export function priorityTier(score: number | null | undefined): PriorityTier {
   const value = typeof score === "number" ? score : 0;
-  if (value >= 55) return "high";
-  if (value >= 30) return "medium";
+  if (value >= 40) return "high";
+  if (value >= 20) return "medium";
   if (value >= 5) return "low";
   return "skip";
 }

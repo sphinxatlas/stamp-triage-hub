@@ -20,13 +20,9 @@ You must NOT report these, because they cannot be judged from a photograph: wate
 
 faults_suggested: only faults actually visible in the image. Choose from thin, crease, tear, short_perfs, toning, foxing, hinge_remnant, fading. Return an empty array if none are visible.
 
-Significance: say what you know about how this issue is regarded by collectors. Set significance_level to key_issue when this is a well known scarce or prestigious issue that specialist collectors actively seek, notable when it is above ordinary but not a key issue, ordinary when it is common material, and unknown when you do not recognise it. In the significance field, write one or two plain sentences explaining the standing of the issue, naming the series and its reputation if you know it. Never state a price, a value, a catalogue figure or a currency amount anywhere in these fields. If you find yourself about to write a number with a currency, write the reason for the item's standing instead.
+is_overprinted: true when text or a figure is printed on top of the original design, such as a new value, a bar struck through the old value, or a commemorative inscription added later. Otherwise false.
 
-Set forgery_risk to high for issues that are commonly forged, which includes most overprints and surcharges, scarce classics, and anything where a cheap stamp becomes an expensive one through a small added detail.
-
-In variants_to_check, name the specific things a person would need to physically examine to pin down which variant this is and what it is worth. Examples: a second printing distinguished by the spacing of the overprint, a perforation difference, a watermark, a shade. Write null if there is nothing variant-sensitive. This field tells the owner what to have an expert look at, so be concrete.
-
-Sets: when several stamps on the page clearly belong to one issued series, also describe that series once in the sets array. Give the set a name, its country, the years it spans, the catalogue system and the catalogue range covered, how many of its items are on this page, and member_indexes listing the indexes of the stamps in your stamps array that belong to it. Describe the significance, forgery risk and variants to check for the set as a whole. Return an empty array if no grouping is clear.
+Sets: when several stamps on the page clearly belong to one issued series, also describe that series once in the sets array. Give the set a name, its country, the years it spans, the catalogue system and the catalogue range covered, how many of its items are on this page, and member_indexes listing the indexes of the stamps in your stamps array that belong to it. Return an empty array if no grouping is clear.
 
 Confidence: give a decimal from 0 to 1 for the overall identification, plus separate confidences for the year and the catalogue number. Use the full range and do not default to a single value. Use these anchors: 0.95 or above only when the country, denomination and issue are all printed clearly and you are certain; 0.8 to 0.94 when the country and denomination are clear but the issue or year rests on inference; 0.5 to 0.79 when the design is partly obscured, the text is hard to read, or several issues share this design; below 0.5 when you are guessing. A wrong confident answer is worse than a flagged uncertain one. Your catalogue number confidence should almost always be lower than your overall confidence, because catalogue numbers depend on perforation and watermark details that are not visible in a photograph.
 
@@ -50,6 +46,9 @@ Set needs_review to true whenever any of these apply, and check each one explici
 
 Also read any handwritten annotations visible on the page into page_notes.
 
+note: a single short phrase of at most 12 words, and only when something is unusual about the stamp. Write null when there is nothing unusual to say.
+
+
 Return one JSON object and nothing else. No prose, no markdown fences. Use exactly this shape:
 
 {
@@ -69,17 +68,12 @@ Return one JSON object and nothing else. No prose, no markdown fences. Use exact
       "catalogue_confidence": number,
       "item_type": "postage" | "revenue" | "cinderella" | "label" | "unknown",
       "mint_or_used": "mint" | "used" | "unknown",
-      "hinged_guess": "hinged" | "unhinged" | "unknown",
+      "is_overprinted": boolean,
       "format": "single" | "block" | "sheet" | "on_cover" | "se_tenant",
       "faults_suggested": string[],
-      "condition_notes": string or null,
-      "significance": string or null,
-      "significance_level": "key_issue" | "notable" | "ordinary" | "unknown",
-      "forgery_risk": "high" | "medium" | "low" | "unknown",
-      "variants_to_check": string or null,
       "confidence": number,
       "needs_review": boolean,
-      "reasoning": string
+      "note": string or null
     }
   ],
   "sets": [
@@ -92,13 +86,9 @@ Return one JSON object and nothing else. No prose, no markdown fences. Use exact
       "catalogue_range": string or null,
       "item_count": integer or null,
       "member_indexes": integer[],
-      "significance": string or null,
-      "significance_level": "key_issue" | "notable" | "ordinary" | "unknown",
-      "forgery_risk": "high" | "medium" | "low" | "unknown",
-      "variants_to_check": string or null,
       "confidence": number,
       "needs_review": boolean,
-      "reasoning": string
+      "note": string or null
     }
   ]
 }`;
