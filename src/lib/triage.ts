@@ -238,6 +238,12 @@ export type ReviewStamp = {
   market_notes: string | null;
   research_brief: string | null;
   research_brief_generated_at: string | null;
+  value_low: number | null;
+  value_high: number | null;
+  value_source: string | null;
+  value_confidence: number | null;
+  value_basis: string | null;
+  value_estimated_at: string | null;
   priority_score: number;
   priority_reasons: string[] | null;
   review_status: string;
@@ -386,6 +392,12 @@ export type ReviewSet = {
   market_notes: string | null;
   research_brief: string | null;
   research_brief_generated_at: string | null;
+  value_low: number | null;
+  value_high: number | null;
+  value_source: string | null;
+  value_confidence: number | null;
+  value_basis: string | null;
+  value_estimated_at: string | null;
   created_at: string | null;
   page_label: string;
   container_label: string;
