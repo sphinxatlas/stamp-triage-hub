@@ -31,7 +31,8 @@ import {
   type IdentifyRun,
   type RunError,
 } from "@/lib/runs";
-import { fetchPages } from "@/lib/triage";
+import { researchBrief } from "@/lib/research.functions";
+import { fetchBriefTargets, fetchPages } from "@/lib/triage";
 
 type Ctx = {
   run: IdentifyRun | null;
