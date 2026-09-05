@@ -172,7 +172,7 @@ export function IdentifyRunProvider({ children }: { children: ReactNode }) {
     };
 
     void work();
-  }, [run, identifyFn, labelOf, refreshAll, queryClient]);
+  }, [run, identifyFn, briefFn, labelOf, refreshAll, queryClient]);
 
   useEffect(() => {
     if (!active) return;
