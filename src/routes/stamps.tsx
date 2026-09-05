@@ -12,7 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { fetchStamps } from "@/lib/triage";
+import { fetchStamps, formatDenomination } from "@/lib/triage";
 
 const stampsQuery = queryOptions({ queryKey: ["stamps"], queryFn: fetchStamps });
 
@@ -78,7 +78,7 @@ function Stamps() {
             filtered.map((stamp) => (
               <TableRow key={stamp.id}>
                 <TableCell>{stamp.country ?? "—"}</TableCell>
-                <TableCell>{stamp.denomination ?? "—"}</TableCell>
+                <TableCell>{formatDenomination(stamp.denomination, stamp.currency)}</TableCell>
                 <TableCell>{stamp.year_estimate ?? "—"}</TableCell>
                 <TableCell>{stamp.item_type}</TableCell>
                 <TableCell>
