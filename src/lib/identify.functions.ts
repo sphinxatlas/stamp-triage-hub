@@ -1,0 +1,251 @@
+import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
+
+import { IDENTIFY_PROMPT } from "./identify-prompt";
+
+export type DetectedStamp = {
+  id: string;
+  position_index: number | null;
+  country: string | null;
+  denomination: string | null;
+  year_estimate: number | null;
+  item_type: string;
+  confidence: number | null;
+  review_status: string;
+};
+
+const MODEL = "google/gemini-3.1-pro-preview";
+
+const ITEM_TYPES = ["postage", "revenue", "cinderella", "label", "unknown"] as const;
+const FORMATS = ["single", "block", "sheet", "on_cover", "se_tenant"] as const;
+
+function pick<T extends readonly string[]>(value: unknown, allowed: T, fallback: T[number]) {
+  return typeof value === "string" && (allowed as readonly string[]).includes(value)
+    ? (value as T[number])
+    : fallback;
+}
+
+function num(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function str(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function toBase64(bytes: Uint8Array) {
+  let binary = "";
+  const chunk = 8192;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
+function extractJson(text: string) {
+  const cleaned = text.replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    const start = cleaned.indexOf("{");
+    const end = cleaned.lastIndexOf("}");
+    if (start === -1 || end <= start) return null;
+    try {
+      return JSON.parse(cleaned.slice(start, end + 1));
+    } catch {
+      return null;
+    }
+  }
+}
+
+async function callModel(apiKey: string, dataUrl: string, prompt: string) {
+  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      stream: false,
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: prompt },
+            { type: "image_url", image_url: { url: dataUrl } },
+          ],
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(
+      response.status === 402
+        ? "AI credits are exhausted for this workspace. Add credits in Lovable to continue."
+        : response.status === 429
+          ? "The AI service is rate limited right now. Try again in a moment."
+          : `AI request failed (${response.status}): ${body.slice(0, 300)}`,
+    );
+  }
+
+  const json = (await response.json()) as {
+    choices?: Array<{ message?: { content?: unknown } }>;
+  };
+  const content = json.choices?.[0]?.message?.content;
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content
+      .map((part) =>
+        part && typeof part === "object" && "text" in part ? String((part as { text: unknown }).text) : "",
+      )
+      .join("");
+  }
+  return "";
+}
+
+export const identifyPage = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => z.object({ page_id: z.string().uuid() }).parse(input))
+  .handler(async ({ data }) => {
+    const apiKey = process.env["LOVABLE_API_KEY"];
+    if (!apiKey) throw new Error("AI is not configured for this project.");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: page, error: pageError } = await supabaseAdmin
+      .from("pages")
+      .select("id, label, photo_path")
+      .eq("id", data.page_id)
+      .single();
+    if (pageError) throw new Error(pageError.message);
+    if (!page.photo_path) {
+      throw new Error("This page has no photo yet. Upload a capture before identifying stamps.");
+    }
+
+    await supabaseAdmin.from("pages").update({ identify_status: "running" }).eq("id", page.id);
+
+    const fail = async (rawText: string, message: string) => {
+      await supabaseAdmin
+        .from("pages")
+        .update({ identify_status: "failed", raw_model_output: { raw_text: rawText } })
+        .eq("id", page.id);
+      throw new Error(message);
+    };
+
+    try {
+      const signed = await supabaseAdmin.storage
+        .from("captures")
+        .createSignedUrl(page.photo_path, 600);
+      if (signed.error || !signed.data?.signedUrl) {
+        throw new Error(signed.error?.message ?? "Could not read the capture image.");
+      }
+
+      const imageResponse = await fetch(signed.data.signedUrl);
+      if (!imageResponse.ok) throw new Error("Could not download the capture image.");
+      const contentType = imageResponse.headers.get("content-type") ?? "image/jpeg";
+      const bytes = new Uint8Array(await imageResponse.arrayBuffer());
+      const dataUrl = `data:${contentType};base64,${toBase64(bytes)}`;
+
+      let text = await callModel(apiKey, dataUrl, IDENTIFY_PROMPT);
+      let parsed = extractJson(text);
+      if (!parsed) {
+        text = await callModel(
+          apiKey,
+          dataUrl,
+          `${IDENTIFY_PROMPT}\n\nReturn only valid JSON matching the shape above. No prose, no markdown fences.`,
+        );
+        parsed = extractJson(text);
+      }
+      if (!parsed || typeof parsed !== "object") {
+        await fail(text, "The AI response could not be read as JSON. Please try again.");
+      }
+
+      const result = parsed as { page_notes?: unknown; stamps?: unknown };
+      const detected = Array.isArray(result.stamps) ? result.stamps : [];
+
+      const rows = detected.map((item, index) => {
+        const stamp = (item ?? {}) as Record<string, unknown>;
+        const confidence = num(stamp["confidence"]);
+        const itemType = pick(stamp["item_type"], ITEM_TYPES, "unknown");
+        const yearEstimate = num(stamp["year_estimate"]);
+        const reviewStatus =
+          stamp["needs_review"] === true
+            ? "flagged_expert"
+            : confidence !== null &&
+                confidence >= 0.8 &&
+                itemType === "postage" &&
+                yearEstimate !== null &&
+                yearEstimate >= 1970
+              ? "auto_accepted"
+              : "pending";
+
+        return {
+          page_id: page.id,
+          position_index: index,
+          crop_path: null,
+          bbox: (stamp["bbox"] ?? null) as never,
+          country: str(stamp["country"]),
+          country_inscription: str(stamp["country_inscription"]),
+          year_estimate: yearEstimate === null ? null : Math.round(yearEstimate),
+          year_confidence: num(stamp["year_confidence"]),
+          denomination: str(stamp["denomination"]),
+          currency: str(stamp["currency"]),
+          issue_name: str(stamp["issue_name"]),
+          catalogue_system: str(stamp["catalogue_system"]),
+          catalogue_number: str(stamp["catalogue_number"]),
+          catalogue_confidence: num(stamp["catalogue_confidence"]),
+          item_type: itemType,
+          mint_or_used: str(stamp["mint_or_used"]),
+          hinged_guess: str(stamp["hinged_guess"]),
+          gum_state: "unknown",
+          format: pick(stamp["format"], FORMATS, "single"),
+          faults: Array.isArray(stamp["faults_suggested"])
+            ? (stamp["faults_suggested"] as unknown[]).filter(
+                (fault): fault is string => typeof fault === "string",
+              )
+            : [],
+          perforation: null,
+          watermark: null,
+          condition_notes: str(stamp["condition_notes"]),
+          confidence,
+          review_status: reviewStatus,
+          notes: str(stamp["reasoning"]),
+        };
+      });
+
+      let inserted: DetectedStamp[] = [];
+      if (rows.length > 0) {
+        const { data: insertedRows, error: insertError } = await supabaseAdmin
+          .from("stamps")
+          .insert(rows)
+          .select("*");
+        if (insertError) throw new Error(insertError.message);
+        inserted = (insertedRows ?? []).map((row) => ({
+          id: String(row.id),
+          position_index: row.position_index ?? null,
+          country: row.country ?? null,
+          denomination: row.denomination ?? null,
+          year_estimate: row.year_estimate ?? null,
+          item_type: row.item_type,
+          confidence: row.confidence === null ? null : Number(row.confidence),
+          review_status: row.review_status,
+        }));
+      }
+
+      await supabaseAdmin
+        .from("pages")
+        .update({
+          raw_model_output: result as never,
+          page_notes: str(result.page_notes),
+          identify_status: "done",
+        })
+        .eq("id", page.id);
+
+      return { stamps: inserted };
+    } catch (error) {
+      await supabaseAdmin.from("pages").update({ identify_status: "failed" }).eq("id", page.id);
+      throw error instanceof Error ? error : new Error("Identification failed.");
+    }
+  });

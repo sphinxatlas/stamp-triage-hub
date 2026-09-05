@@ -1,5 +1,6 @@
 import { queryOptions, useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -14,9 +15,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
+import { identifyPage, type DetectedStamp } from "@/lib/identify.functions";
 import { fetchContainers, fetchPages, nextPageLabel, signedCaptureUrl } from "@/lib/triage";
+
 
 const containersQuery = queryOptions({ queryKey: ["containers"], queryFn: fetchContainers });
 const pagesQuery = queryOptions({ queryKey: ["pages"], queryFn: () => fetchPages() });
@@ -50,7 +60,23 @@ function Capture() {
   const [pageId, setPageId] = useState("");
   const [captureType, setCaptureType] = useState("album_page");
   const [file, setFile] = useState<File | null>(null);
-  const [result, setResult] = useState<{ label: string; url: string } | null>(null);
+  const [result, setResult] = useState<{ label: string; url: string; pageId: string } | null>(null);
+  const [detected, setDetected] = useState<DetectedStamp[] | null>(null);
+  const identifyFn = useServerFn(identifyPage);
+
+  const identify = useMutation({
+    mutationFn: async (targetPageId: string) => identifyFn({ data: { page_id: targetPageId } }),
+    onSuccess: (data) => {
+      setDetected(data.stamps);
+      toast.success(
+        data.stamps.length ? `Found ${data.stamps.length} stamp(s)` : "No stamps were detected",
+      );
+      queryClient.invalidateQueries({ queryKey: ["pages"] });
+      queryClient.invalidateQueries({ queryKey: ["stamps"] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
 
   const containerPages = pages.filter((page) => page.container_id === containerId);
 
@@ -92,13 +118,15 @@ function Capture() {
       if (updateError) throw updateError;
 
       const url = await signedCaptureUrl(path);
-      return { label: targetLabel, url };
+      return { label: targetLabel, url, pageId: targetId };
     },
     onSuccess: (data) => {
       setResult(data);
+      setDetected(null);
       setFile(null);
       setPageId("");
       toast.success(`Saved capture for ${data.label}`);
+
       queryClient.invalidateQueries({ queryKey: ["pages"] });
     },
     onError: (error: Error) => toast.error(error.message),
@@ -175,16 +203,13 @@ function Capture() {
         <Button onClick={() => submit.mutate()} disabled={submit.isPending}>
           {submit.isPending ? "Uploading…" : "Save capture"}
         </Button>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span>
-              <Button variant="outline" disabled>
-                Identify stamps
-              </Button>
-            </span>
-          </TooltipTrigger>
-          <TooltipContent>Coming soon</TooltipContent>
-        </Tooltip>
+        <Button
+          variant="outline"
+          disabled={!result || identify.isPending}
+          onClick={() => result && identify.mutate(result.pageId)}
+        >
+          {identify.isPending ? "Identifying…" : "Identify stamps"}
+        </Button>
       </div>
 
       {result ? (
@@ -193,6 +218,46 @@ function Capture() {
           <img src={result.url} alt={`Capture for ${result.label}`} className="max-h-80 rounded" />
         </div>
       ) : null}
+
+      {detected ? (
+        <div className="rounded-lg border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>#</TableHead>
+                <TableHead>Country</TableHead>
+                <TableHead>Denomination</TableHead>
+                <TableHead>Year</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Confidence</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {detected.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7}>No stamps were detected on this page.</TableCell>
+                </TableRow>
+              ) : (
+                detected.map((stamp, index) => (
+                  <TableRow key={stamp.id}>
+                    <TableCell>{stamp.position_index ?? index}</TableCell>
+                    <TableCell>{stamp.country ?? "—"}</TableCell>
+                    <TableCell>{stamp.denomination ?? "—"}</TableCell>
+                    <TableCell>{stamp.year_estimate ?? "—"}</TableCell>
+                    <TableCell>{stamp.item_type}</TableCell>
+                    <TableCell>
+                      {stamp.confidence === null ? "—" : stamp.confidence.toFixed(2)}
+                    </TableCell>
+                    <TableCell>{stamp.review_status}</TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      ) : null}
+
     </div>
   );
 }
