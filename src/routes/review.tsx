@@ -612,7 +612,13 @@ function Reported({ label, value }: { label: string; value: string | null }) {
   );
 }
 
-function SetsPanel({ sets }: { sets: ReviewSet[] }) {
+function SetsPanel({
+  sets,
+  photoUrls,
+}: {
+  sets: ReviewSet[];
+  photoUrls: Record<string, string>;
+}) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   useEffect(() => {
