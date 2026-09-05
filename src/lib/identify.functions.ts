@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { IDENTIFY_PROMPT } from "./identify-prompt";
+import { computePriority } from "./priority";
 
 export type DetectedStamp = {
   id: string;
@@ -18,6 +19,8 @@ const MODEL = "google/gemini-3.1-pro-preview";
 
 const ITEM_TYPES = ["postage", "revenue", "cinderella", "label", "unknown"] as const;
 const FORMATS = ["single", "block", "sheet", "on_cover", "se_tenant"] as const;
+const SIGNIFICANCE_LEVELS = ["key_issue", "notable", "ordinary", "unknown"] as const;
+const FORGERY_RISKS = ["high", "medium", "low", "unknown"] as const;
 
 function pick<T extends readonly string[]>(value: unknown, allowed: T, fallback: T[number]) {
   return typeof value === "string" && (allowed as readonly string[]).includes(value)
@@ -159,6 +162,7 @@ export const identifyPage = createServerFn({ method: "POST" })
     }
 
     await supabaseAdmin.from("stamps").delete().eq("page_id", page.id);
+    await supabaseAdmin.from("stamp_sets").delete().eq("page_id", page.id);
     await supabaseAdmin.from("pages").update({ identify_status: "running" }).eq("id", page.id);
 
 
