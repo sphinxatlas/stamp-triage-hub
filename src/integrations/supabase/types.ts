@@ -239,6 +239,7 @@ export type Database = {
           gum_state: string
           hinged_guess: string | null
           id: string
+          is_overprinted: boolean
           issue_name: string | null
           item_type: string
           market_notes: string | null
@@ -290,6 +291,7 @@ export type Database = {
           gum_state?: string
           hinged_guess?: string | null
           id?: string
+          is_overprinted?: boolean
           issue_name?: string | null
           item_type?: string
           market_notes?: string | null
@@ -341,6 +343,7 @@ export type Database = {
           gum_state?: string
           hinged_guess?: string | null
           id?: string
+          is_overprinted?: boolean
           issue_name?: string | null
           item_type?: string
           market_notes?: string | null
