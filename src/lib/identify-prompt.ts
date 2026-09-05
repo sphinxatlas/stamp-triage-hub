@@ -1,6 +1,6 @@
 export const IDENTIFY_PROMPT = `You are identifying postage stamps in a photograph for a triage catalogue. The photo is either an album page or a grid of loose stamps on a plain card.
 
-First, locate every stamp in the image and give each a normalised bounding box with x, y, width and height as decimals from 0 to 1, measured from the top left. Locate all of them before identifying any.
+For each stamp, give its location as "box_2d": [ymin, xmin, ymax, xmax], with all four values as integers from 0 to 1000, where 0,0 is the top left of the image and 1000,1000 is the bottom right. Draw the box tightly around the stamp including its perforations, and exclude the black mount or album paper around it. Locate every stamp before identifying any.
 
 Then identify each stamp in this order: country, denomination and currency, era from the design and printing style, issue name, then a catalogue guess.
 
