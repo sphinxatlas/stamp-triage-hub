@@ -3,6 +3,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import {
+  MarketLookup,
+  SIGNIFICANCE_LABELS,
+  SignificanceBadgeClass,
+} from "@/components/market-lookup";
 import { PageWithBox, StampCrop } from "@/components/stamp-crop";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,14 +36,20 @@ import {
   ITEM_TYPE_OPTIONS,
   MINT_OPTIONS,
   fetchReviewQueue,
+  fetchReviewSets,
   formatDenomination,
+  marketSearchPhrase,
+  saveSet,
   saveStamp,
+  type ReviewSet,
   type ReviewStamp,
+  type SetEdits,
   type StampEdits,
 } from "@/lib/triage";
 import { cn } from "@/lib/utils";
 
 const queueQuery = queryOptions({ queryKey: ["review-queue"], queryFn: fetchReviewQueue });
+const setsQuery = queryOptions({ queryKey: ["review-sets"], queryFn: fetchReviewSets });
 
 export const Route = createFileRoute("/review")({
   ssr: false,
@@ -83,11 +94,28 @@ function toEdits(stamp: ReviewStamp): StampEdits {
     faults: stamp.faults ?? [],
     quantity: stamp.quantity,
     notes: stamp.notes,
+    market_notes: stamp.market_notes,
+  };
+}
+
+function toSetEdits(record: ReviewSet): SetEdits {
+  return {
+    set_name: record.set_name,
+    country: record.country,
+    year_from: record.year_from,
+    year_to: record.year_to,
+    catalogue_system: record.catalogue_system,
+    catalogue_range: record.catalogue_range,
+    item_count: record.item_count,
+    notes: record.notes,
+    market_notes: record.market_notes,
   };
 }
 
 function Review() {
   const { data } = useSuspenseQuery(queueQuery);
+  const { data: sets } = useSuspenseQuery(setsQuery);
+  const [view, setView] = useState<"stamps" | "sets">("stamps");
   const [filter, setFilter] = useState<string>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -109,6 +137,11 @@ function Review() {
     }
   }, [visible, selectedId]);
 
+  const visibleSets = useMemo(
+    () => (filter === "all" ? sets : sets.filter((item) => item.review_status === filter)),
+    [sets, filter],
+  );
+
   const selected = visible.find((stamp) => stamp.id === selectedId) ?? null;
 
   const selectNext = (removedId: string) => {
@@ -121,8 +154,26 @@ function Review() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold">
-          {visible.length} stamp{visible.length === 1 ? "" : "s"} to review
+          {view === "sets"
+            ? `${visibleSets.length} set${visibleSets.length === 1 ? "" : "s"} to review`
+            : `${visible.length} stamp${visible.length === 1 ? "" : "s"} to review`}
         </h1>
+        <div className="flex items-center gap-2">
+          <Button
+            variant={view === "stamps" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setView("stamps")}
+          >
+            Stamps
+          </Button>
+          <Button
+            variant={view === "sets" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setView("sets")}
+          >
+            Sets ({sets.length})
+          </Button>
+        </div>
         <div className="w-56">
           <Select value={filter} onValueChange={setFilter}>
             <SelectTrigger aria-label="Status filter">
@@ -139,7 +190,9 @@ function Review() {
         </div>
       </div>
 
-      {visible.length === 0 ? (
+      {view === "sets" ? (
+        <SetsPanel sets={visibleSets} />
+      ) : visible.length === 0 ? (
         <p className="rounded-lg border p-6 text-muted-foreground">Nothing left to review</p>
       ) : (
         <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
@@ -168,7 +221,15 @@ function Review() {
                   <p className="truncate text-xs text-muted-foreground">
                     {formatDenomination(stamp.denomination, stamp.currency)}
                   </p>
-                  <Badge variant="secondary">{stamp.review_status}</Badge>
+                  <div className="flex flex-wrap gap-1">
+                    <Badge variant="secondary">{stamp.review_status}</Badge>
+                    {stamp.significance_level === "key_issue" ||
+                    stamp.significance_level === "notable" ? (
+                      <Badge className={SignificanceBadgeClass(stamp.significance_level)}>
+                        {SIGNIFICANCE_LABELS[stamp.significance_level]}
+                      </Badge>
+                    ) : null}
+                  </div>
                 </div>
               </button>
             ))}
@@ -292,6 +353,17 @@ function StampDetail({
           <Reported label="Catalogue confidence" value={confidence(stamp.catalogue_confidence)} />
           <Reported label="Reasoning" value={stamp.notes} />
         </dl>
+        <div className="space-y-2 border-t pt-3">
+          <Badge className={SignificanceBadgeClass(stamp.significance_level)}>
+            {SIGNIFICANCE_LABELS[stamp.significance_level] ?? stamp.significance_level}
+          </Badge>
+          <p className="text-sm">{stamp.significance ?? "No note on how this issue is regarded."}</p>
+          <h3 className="text-xs font-semibold">What to have an expert check</h3>
+          <dl className="grid gap-2 text-sm sm:grid-cols-2">
+            <Reported label="Forgery risk" value={stamp.forgery_risk} />
+            <Reported label="Variants to check" value={stamp.variants_to_check} />
+          </dl>
+        </div>
         <p className="text-xs text-muted-foreground">These are unverified machine guesses.</p>
       </section>
 
@@ -436,6 +508,24 @@ function StampDetail({
             onChange={(event) => set("notes", event.target.value || null)}
           />
         </Field>
+
+        <MarketLookup
+          initialPhrase={marketSearchPhrase({
+            country: edits.country,
+            year_estimate: edits.year_estimate,
+            issue_name: edits.issue_name,
+            catalogue_system: edits.catalogue_system,
+            catalogue_number: edits.catalogue_number,
+          })}
+        />
+
+        <Field label="Market notes">
+          <Textarea
+            placeholder="Paste what you found and what it sold for"
+            value={edits.market_notes ?? ""}
+            onChange={(event) => set("market_notes", event.target.value || null)}
+          />
+        </Field>
       </section>
 
       <div className="flex flex-wrap gap-2">
@@ -503,6 +593,256 @@ function Reported({ label, value }: { label: string; value: string | null }) {
     <div>
       <dt className="text-xs text-muted-foreground">{label}</dt>
       <dd>{value ?? "—"}</dd>
+    </div>
+  );
+}
+
+function SetsPanel({ sets }: { sets: ReviewSet[] }) {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (sets.length === 0) {
+      if (selectedId !== null) setSelectedId(null);
+      return;
+    }
+    if (!selectedId || !sets.some((item) => item.id === selectedId)) {
+      setSelectedId(sets[0]!.id);
+    }
+  }, [sets, selectedId]);
+
+  const selected = sets.find((item) => item.id === selectedId) ?? null;
+
+  const selectNext = (removedId: string) => {
+    const index = sets.findIndex((item) => item.id === removedId);
+    const next = sets[index + 1] ?? sets[index - 1] ?? null;
+    setSelectedId(next ? next.id : null);
+  };
+
+  if (sets.length === 0) {
+    return <p className="rounded-lg border p-6 text-muted-foreground">Nothing left to review</p>;
+  }
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
+      <div className="max-h-[70vh] space-y-2 overflow-y-auto pr-1">
+        {sets.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => setSelectedId(item.id)}
+            className={cn(
+              "w-full space-y-1 rounded-lg border p-2 text-left transition-colors hover:bg-accent",
+              item.id === selectedId && "border-primary bg-accent",
+            )}
+          >
+            <p className="truncate text-xs text-muted-foreground">
+              {item.container_label} · {item.page_label}
+            </p>
+            <p className="truncate text-sm font-medium">{item.set_name}</p>
+            <p className="truncate text-xs text-muted-foreground">
+              {[item.country, item.year_from].filter(Boolean).join(" · ") || "—"}
+            </p>
+            <div className="flex flex-wrap gap-1">
+              <Badge variant="secondary">{item.review_status}</Badge>
+              {item.significance_level === "key_issue" || item.significance_level === "notable" ? (
+                <Badge className={SignificanceBadgeClass(item.significance_level)}>
+                  {SIGNIFICANCE_LABELS[item.significance_level]}
+                </Badge>
+              ) : null}
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {selected ? (
+        <SetDetail
+          key={selected.id}
+          record={selected}
+          onRemoved={() => selectNext(selected.id)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function SetDetail({ record, onRemoved }: { record: ReviewSet; onRemoved: () => void }) {
+  const queryClient = useQueryClient();
+  const [edits, setEdits] = useState<SetEdits>(() => toSetEdits(record));
+
+  const set = <K extends keyof SetEdits>(key: K, value: SetEdits[K]) =>
+    setEdits((prev) => ({ ...prev, [key]: value }));
+
+  const decide = useMutation({
+    mutationFn: async (status?: "confirmed" | "flagged_expert" | "rejected") => {
+      await saveSet(record.id, edits, status);
+      return status;
+    },
+    onSuccess: (status) => {
+      if (status) {
+        onRemoved();
+        toast.success(status === "confirmed" ? "Set confirmed" : status === "rejected" ? "Set rejected" : "Flagged for expert");
+      } else {
+        toast.success("Changes saved");
+      }
+      queryClient.invalidateQueries({ queryKey: ["review-sets"] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  return (
+    <div className="space-y-6 rounded-lg border p-4">
+      <div className="space-y-1">
+        <h2 className="text-lg font-semibold">{record.set_name}</h2>
+        <p className="text-sm text-muted-foreground">
+          {record.container_label} · {record.page_label}
+        </p>
+      </div>
+
+      <section className="space-y-2 rounded-lg bg-muted/50 p-4">
+        <h2 className="text-sm font-semibold">What the AI reported</h2>
+        <dl className="grid gap-2 text-sm sm:grid-cols-2">
+          <Reported label="Country" value={record.country} />
+          <Reported
+            label="Years"
+            value={[record.year_from, record.year_to].filter(Boolean).join("–") || null}
+          />
+          <Reported
+            label="Catalogue"
+            value={[record.catalogue_system, record.catalogue_range].filter(Boolean).join(" ") || null}
+          />
+          <Reported
+            label="Items on page"
+            value={record.item_count === null ? null : String(record.item_count)}
+          />
+          <Reported
+            label="Confidence"
+            value={record.confidence === null ? "—" : Number(record.confidence).toFixed(2)}
+          />
+          <Reported
+            label="Priority score"
+            value={`${record.priority_score}${
+              record.priority_reasons?.length ? ` (${record.priority_reasons.join(", ")})` : ""
+            }`}
+          />
+          <Reported label="Reasoning" value={record.notes} />
+        </dl>
+        <div className="space-y-2 border-t pt-3">
+          <Badge className={SignificanceBadgeClass(record.significance_level)}>
+            {SIGNIFICANCE_LABELS[record.significance_level] ?? record.significance_level}
+          </Badge>
+          <p className="text-sm">
+            {record.significance ?? "No note on how this set is regarded."}
+          </p>
+          <h3 className="text-xs font-semibold">What to have an expert check</h3>
+          <dl className="grid gap-2 text-sm sm:grid-cols-2">
+            <Reported label="Forgery risk" value={record.forgery_risk} />
+            <Reported label="Variants to check" value={record.variants_to_check} />
+          </dl>
+        </div>
+        <p className="text-xs text-muted-foreground">These are unverified machine guesses.</p>
+      </section>
+
+      <section className="space-y-4">
+        <h2 className="text-sm font-semibold">Your record</h2>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Set name">
+            <Input value={edits.set_name} onChange={(event) => set("set_name", event.target.value)} />
+          </Field>
+          <Field label="Country">
+            <Input
+              value={edits.country ?? ""}
+              onChange={(event) => set("country", event.target.value || null)}
+            />
+          </Field>
+          <Field label="Year from">
+            <Input
+              type="number"
+              value={edits.year_from ?? ""}
+              onChange={(event) =>
+                set("year_from", event.target.value ? Number(event.target.value) : null)
+              }
+            />
+          </Field>
+          <Field label="Year to">
+            <Input
+              type="number"
+              value={edits.year_to ?? ""}
+              onChange={(event) =>
+                set("year_to", event.target.value ? Number(event.target.value) : null)
+              }
+            />
+          </Field>
+          <Field label="Catalogue system">
+            <Input
+              value={edits.catalogue_system ?? ""}
+              onChange={(event) => set("catalogue_system", event.target.value || null)}
+            />
+          </Field>
+          <Field label="Catalogue range">
+            <Input
+              value={edits.catalogue_range ?? ""}
+              onChange={(event) => set("catalogue_range", event.target.value || null)}
+            />
+          </Field>
+          <Field label="Items on page">
+            <Input
+              type="number"
+              value={edits.item_count ?? ""}
+              onChange={(event) =>
+                set("item_count", event.target.value ? Number(event.target.value) : null)
+              }
+            />
+          </Field>
+        </div>
+
+        <Field label="Notes">
+          <Textarea
+            value={edits.notes ?? ""}
+            onChange={(event) => set("notes", event.target.value || null)}
+          />
+        </Field>
+
+        <MarketLookup
+          initialPhrase={marketSearchPhrase({
+            country: edits.country,
+            year_from: edits.year_from,
+            set_name: edits.set_name,
+            catalogue_system: edits.catalogue_system,
+            catalogue_range: edits.catalogue_range,
+          })}
+        />
+
+        <Field label="Market notes">
+          <Textarea
+            placeholder="Paste what you found and what it sold for"
+            value={edits.market_notes ?? ""}
+            onChange={(event) => set("market_notes", event.target.value || null)}
+          />
+        </Field>
+      </section>
+
+      <div className="flex flex-wrap gap-2">
+        <Button disabled={decide.isPending} onClick={() => decide.mutate("confirmed")}>
+          Confirm
+        </Button>
+        <Button
+          variant="outline"
+          disabled={decide.isPending}
+          onClick={() => decide.mutate("flagged_expert")}
+        >
+          Flag for expert
+        </Button>
+        <Button
+          variant="destructive"
+          disabled={decide.isPending}
+          onClick={() => decide.mutate("rejected")}
+        >
+          Reject set
+        </Button>
+        <Button variant="ghost" disabled={decide.isPending} onClick={() => decide.mutate(undefined)}>
+          Save without deciding
+        </Button>
+      </div>
     </div>
   );
 }

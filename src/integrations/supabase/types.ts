@@ -85,6 +85,86 @@ export type Database = {
           },
         ]
       }
+      stamp_sets: {
+        Row: {
+          catalogue_range: string | null
+          catalogue_system: string | null
+          confidence: number | null
+          country: string | null
+          created_at: string
+          forgery_risk: string
+          id: string
+          item_count: number | null
+          market_notes: string | null
+          notes: string | null
+          page_id: string
+          priority_reasons: string[]
+          priority_score: number
+          review_status: string
+          set_name: string
+          significance: string | null
+          significance_level: string
+          updated_at: string
+          variants_to_check: string | null
+          year_from: number | null
+          year_to: number | null
+        }
+        Insert: {
+          catalogue_range?: string | null
+          catalogue_system?: string | null
+          confidence?: number | null
+          country?: string | null
+          created_at?: string
+          forgery_risk?: string
+          id?: string
+          item_count?: number | null
+          market_notes?: string | null
+          notes?: string | null
+          page_id: string
+          priority_reasons?: string[]
+          priority_score?: number
+          review_status?: string
+          set_name: string
+          significance?: string | null
+          significance_level?: string
+          updated_at?: string
+          variants_to_check?: string | null
+          year_from?: number | null
+          year_to?: number | null
+        }
+        Update: {
+          catalogue_range?: string | null
+          catalogue_system?: string | null
+          confidence?: number | null
+          country?: string | null
+          created_at?: string
+          forgery_risk?: string
+          id?: string
+          item_count?: number | null
+          market_notes?: string | null
+          notes?: string | null
+          page_id?: string
+          priority_reasons?: string[]
+          priority_score?: number
+          review_status?: string
+          set_name?: string
+          significance?: string | null
+          significance_level?: string
+          updated_at?: string
+          variants_to_check?: string | null
+          year_from?: number | null
+          year_to?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stamp_sets_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stamps: {
         Row: {
           bbox: Json | null
@@ -100,27 +180,35 @@ export type Database = {
           currency: string | null
           denomination: string | null
           faults: string[] | null
+          forgery_risk: string
           format: string
           gum_state: string
           hinged_guess: string | null
           id: string
           issue_name: string | null
           item_type: string
+          market_notes: string | null
           mint_or_used: string | null
           notes: string | null
           page_id: string
           perforation: string | null
           position_index: number | null
+          priority_reasons: string[]
+          priority_score: number
           quantity: number
           review_status: string
+          set_id: string | null
           set_name: string | null
           set_position: string | null
+          significance: string | null
+          significance_level: string
           tags: string[] | null
           updated_at: string | null
           value_confidence: number | null
           value_high: number | null
           value_low: number | null
           value_source: string | null
+          variants_to_check: string | null
           watermark: string | null
           year_confidence: number | null
           year_estimate: number | null
@@ -139,27 +227,35 @@ export type Database = {
           currency?: string | null
           denomination?: string | null
           faults?: string[] | null
+          forgery_risk?: string
           format?: string
           gum_state?: string
           hinged_guess?: string | null
           id?: string
           issue_name?: string | null
           item_type?: string
+          market_notes?: string | null
           mint_or_used?: string | null
           notes?: string | null
           page_id: string
           perforation?: string | null
           position_index?: number | null
+          priority_reasons?: string[]
+          priority_score?: number
           quantity?: number
           review_status?: string
+          set_id?: string | null
           set_name?: string | null
           set_position?: string | null
+          significance?: string | null
+          significance_level?: string
           tags?: string[] | null
           updated_at?: string | null
           value_confidence?: number | null
           value_high?: number | null
           value_low?: number | null
           value_source?: string | null
+          variants_to_check?: string | null
           watermark?: string | null
           year_confidence?: number | null
           year_estimate?: number | null
@@ -178,27 +274,35 @@ export type Database = {
           currency?: string | null
           denomination?: string | null
           faults?: string[] | null
+          forgery_risk?: string
           format?: string
           gum_state?: string
           hinged_guess?: string | null
           id?: string
           issue_name?: string | null
           item_type?: string
+          market_notes?: string | null
           mint_or_used?: string | null
           notes?: string | null
           page_id?: string
           perforation?: string | null
           position_index?: number | null
+          priority_reasons?: string[]
+          priority_score?: number
           quantity?: number
           review_status?: string
+          set_id?: string | null
           set_name?: string | null
           set_position?: string | null
+          significance?: string | null
+          significance_level?: string
           tags?: string[] | null
           updated_at?: string | null
           value_confidence?: number | null
           value_high?: number | null
           value_low?: number | null
           value_source?: string | null
+          variants_to_check?: string | null
           watermark?: string | null
           year_confidence?: number | null
           year_estimate?: number | null
@@ -209,6 +313,13 @@ export type Database = {
             columns: ["page_id"]
             isOneToOne: false
             referencedRelation: "pages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stamps_set_id_fkey"
+            columns: ["set_id"]
+            isOneToOne: false
+            referencedRelation: "stamp_sets"
             referencedColumns: ["id"]
           },
         ]

@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { IDENTIFY_PROMPT } from "./identify-prompt";
+import { computePriority } from "./priority";
 
 export type DetectedStamp = {
   id: string;
@@ -18,6 +19,8 @@ const MODEL = "google/gemini-3.1-pro-preview";
 
 const ITEM_TYPES = ["postage", "revenue", "cinderella", "label", "unknown"] as const;
 const FORMATS = ["single", "block", "sheet", "on_cover", "se_tenant"] as const;
+const SIGNIFICANCE_LEVELS = ["key_issue", "notable", "ordinary", "unknown"] as const;
+const FORGERY_RISKS = ["high", "medium", "low", "unknown"] as const;
 
 function pick<T extends readonly string[]>(value: unknown, allowed: T, fallback: T[number]) {
   return typeof value === "string" && (allowed as readonly string[]).includes(value)
@@ -159,6 +162,7 @@ export const identifyPage = createServerFn({ method: "POST" })
     }
 
     await supabaseAdmin.from("stamps").delete().eq("page_id", page.id);
+    await supabaseAdmin.from("stamp_sets").delete().eq("page_id", page.id);
     await supabaseAdmin.from("pages").update({ identify_status: "running" }).eq("id", page.id);
 
 
@@ -198,14 +202,72 @@ export const identifyPage = createServerFn({ method: "POST" })
         await fail(text, "The AI response could not be read as JSON. Please try again.");
       }
 
-      const result = parsed as { page_notes?: unknown; stamps?: unknown };
+      const result = parsed as { page_notes?: unknown; stamps?: unknown; sets?: unknown };
       const detected = Array.isArray(result.stamps) ? result.stamps : [];
+      const detectedSets = Array.isArray(result.sets) ? result.sets : [];
+
+      // Sets are inserted first so each stamp can reference the set it belongs to.
+      const setIdByStampIndex = new Map<number, string>();
+      for (const rawSet of detectedSets) {
+        const item = (rawSet ?? {}) as Record<string, unknown>;
+        const name = str(item["set_name"]);
+        if (!name) continue;
+        const confidence = num(item["confidence"]);
+        const significanceLevel = pick(item["significance_level"], SIGNIFICANCE_LEVELS, "unknown");
+        const forgeryRisk = pick(item["forgery_risk"], FORGERY_RISKS, "unknown");
+        const variants = str(item["variants_to_check"]);
+        const yearFrom = num(item["year_from"]);
+        const priority = computePriority({
+          significance_level: significanceLevel,
+          forgery_risk: forgeryRisk,
+          variants_to_check: variants,
+          confidence,
+          year_estimate: yearFrom,
+          needs_review: item["needs_review"] === true,
+        });
+
+        const { data: insertedSet, error: setError } = await supabaseAdmin
+          .from("stamp_sets")
+          .insert({
+            page_id: page.id,
+            set_name: name,
+            country: str(item["country"]),
+            year_from: yearFrom === null ? null : Math.round(yearFrom),
+            year_to: num(item["year_to"]) === null ? null : Math.round(num(item["year_to"])!),
+            catalogue_system: str(item["catalogue_system"]),
+            catalogue_range: str(item["catalogue_range"]),
+            item_count: num(item["item_count"]) === null ? null : Math.round(num(item["item_count"])!),
+            confidence,
+            notes: str(item["reasoning"]),
+            review_status: item["needs_review"] === true ? "flagged_expert" : "pending",
+            priority_score: priority.score,
+            priority_reasons: priority.reasons,
+            significance: str(item["significance"]),
+            significance_level: significanceLevel,
+            forgery_risk: forgeryRisk,
+            variants_to_check: variants,
+          } as never)
+          .select("id")
+          .single();
+        if (setError) throw new Error(setError.message);
+
+        const members = Array.isArray(item["member_indexes"]) ? item["member_indexes"] : [];
+        for (const member of members) {
+          if (typeof member === "number" && Number.isInteger(member)) {
+            setIdByStampIndex.set(member, String((insertedSet as { id: unknown }).id));
+          }
+        }
+      }
 
       const rows = detected.map((item, index) => {
         const stamp = (item ?? {}) as Record<string, unknown>;
         const confidence = num(stamp["confidence"]);
         const itemType = pick(stamp["item_type"], ITEM_TYPES, "unknown");
         const yearEstimate = num(stamp["year_estimate"]);
+        const format = pick(stamp["format"], FORMATS, "single");
+        const significanceLevel = pick(stamp["significance_level"], SIGNIFICANCE_LEVELS, "unknown");
+        const forgeryRisk = pick(stamp["forgery_risk"], FORGERY_RISKS, "unknown");
+        const variants = str(stamp["variants_to_check"]);
         const reviewStatus =
           stamp["needs_review"] === true
             ? "flagged_expert"
@@ -216,9 +278,19 @@ export const identifyPage = createServerFn({ method: "POST" })
                 yearEstimate >= 1970
               ? "auto_accepted"
               : "pending";
+        const priority = computePriority({
+          significance_level: significanceLevel,
+          forgery_risk: forgeryRisk,
+          variants_to_check: variants,
+          confidence,
+          year_estimate: yearEstimate,
+          format,
+          needs_review: stamp["needs_review"] === true,
+        });
 
         return {
           page_id: page.id,
+          set_id: setIdByStampIndex.get(index) ?? null,
           position_index: index,
           crop_path: null,
           bbox: resolveBbox(stamp) as never,
@@ -236,7 +308,7 @@ export const identifyPage = createServerFn({ method: "POST" })
           mint_or_used: str(stamp["mint_or_used"]),
           hinged_guess: str(stamp["hinged_guess"]),
           gum_state: "unknown",
-          format: pick(stamp["format"], FORMATS, "single"),
+          format,
           faults: Array.isArray(stamp["faults_suggested"])
             ? (stamp["faults_suggested"] as unknown[]).filter(
                 (fault): fault is string => typeof fault === "string",
@@ -248,6 +320,12 @@ export const identifyPage = createServerFn({ method: "POST" })
           confidence,
           review_status: reviewStatus,
           notes: str(stamp["reasoning"]),
+          significance: str(stamp["significance"]),
+          significance_level: significanceLevel,
+          forgery_risk: forgeryRisk,
+          variants_to_check: variants,
+          priority_score: priority.score,
+          priority_reasons: priority.reasons,
         };
       });
 
@@ -255,7 +333,7 @@ export const identifyPage = createServerFn({ method: "POST" })
       if (rows.length > 0) {
         const { data: insertedRows, error: insertError } = await supabaseAdmin
           .from("stamps")
-          .insert(rows)
+          .insert(rows as never)
           .select("*");
         if (insertError) throw new Error(insertError.message);
         inserted = (insertedRows ?? []).map((row) => ({
