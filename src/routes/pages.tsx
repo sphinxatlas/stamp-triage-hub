@@ -1,12 +1,30 @@
 import { queryOptions, useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { ConfirmButton } from "@/components/confirm-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Collapsible,
   CollapsibleContent,
@@ -38,6 +56,19 @@ const countsQuery = queryOptions({
   queryKey: ["page-stamp-counts"],
   queryFn: fetchPageStampCounts,
 });
+
+type RunState = "pending" | "running" | "done" | "failed";
+type RunItem = { id: string; label: string; state: RunState; error?: string };
+
+async function countSetsForPage(pageId: string) {
+  const { count, error } = await supabase
+    .from("stamp_sets")
+    .select("id", { count: "exact", head: true })
+    .eq("page_id", pageId);
+  if (error) return 0;
+  return count ?? 0;
+}
+
 
 async function fetchThumbnails(paths: string[]) {
   if (paths.length === 0) return {} as Record<string, string>;
