@@ -907,3 +907,71 @@ function SetDetail({ record, onRemoved }: { record: ReviewSet; onRemoved: () => 
     </div>
   );
 }
+
+function ResearchBriefBlock({
+  kind,
+  id,
+  brief,
+  generatedAt,
+}: {
+  kind: "stamp" | "set";
+  id: string;
+  brief: string | null;
+  generatedAt: string | null;
+}) {
+  const queryClient = useQueryClient();
+  const generate = useServerFn(researchBrief);
+  const [text, setText] = useState(brief);
+  const [when, setWhen] = useState(generatedAt);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    setText(brief);
+    setWhen(generatedAt);
+  }, [brief, generatedAt, id]);
+
+  const run = async () => {
+    setBusy(true);
+    try {
+      const result = await generate({ data: { kind, id } });
+      setText(result.research_brief);
+      setWhen(result.research_brief_generated_at);
+      queryClient.invalidateQueries({ queryKey: ["review-queue"] });
+      queryClient.invalidateQueries({ queryKey: ["review-sets"] });
+      toast.success("Research brief ready");
+    } catch (error) {
+      toast.error((error as Error).message || "Could not write the brief");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="space-y-3 rounded-lg border p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold">Research brief</h2>
+        <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void run()}>
+          {busy ? "Writing…" : text ? "Regenerate" : "Research brief"}
+        </Button>
+      </div>
+      {text ? (
+        <>
+          <p className="whitespace-pre-wrap text-sm">{text}</p>
+          {when ? (
+            <p className="text-xs text-muted-foreground">
+              Written {new Date(when).toLocaleString()}
+            </p>
+          ) : null}
+          <p className="text-xs text-muted-foreground">
+            This describes the item, not its price. Use the sold listings below for real prices, and
+            a professional valuation for a real figure.
+          </p>
+        </>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          Ask for a short plain-English brief on this item before taking it to a valuer.
+        </p>
+      )}
+    </section>
+  );
+}
