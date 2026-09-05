@@ -138,7 +138,11 @@ export type Database = {
           significance_level: string
           updated_at: string
           value_basis: string | null
+          value_confidence: number | null
           value_estimated_at: string | null
+          value_high: number | null
+          value_low: number | null
+          value_source: string | null
           variants_to_check: string | null
           year_from: number | null
           year_to: number | null
@@ -165,7 +169,11 @@ export type Database = {
           significance_level?: string
           updated_at?: string
           value_basis?: string | null
+          value_confidence?: number | null
           value_estimated_at?: string | null
+          value_high?: number | null
+          value_low?: number | null
+          value_source?: string | null
           variants_to_check?: string | null
           year_from?: number | null
           year_to?: number | null
@@ -192,7 +200,11 @@ export type Database = {
           significance_level?: string
           updated_at?: string
           value_basis?: string | null
+          value_confidence?: number | null
           value_estimated_at?: string | null
+          value_high?: number | null
+          value_low?: number | null
+          value_source?: string | null
           variants_to_check?: string | null
           year_from?: number | null
           year_to?: number | null
