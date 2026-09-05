@@ -328,6 +328,9 @@ export async function saveStamp(
     updated_at: new Date().toISOString(),
   };
   if (reviewStatus) payload["review_status"] = reviewStatus;
-  const { error } = await supabase.from("stamps").update(payload).eq("id", stampId);
+  const { error } = await supabase
+    .from("stamps")
+    .update(payload as never)
+    .eq("id", stampId);
   if (error) throw error;
 }
