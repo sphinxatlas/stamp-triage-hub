@@ -329,7 +329,7 @@ function Stamps() {
               <TableHead className="w-16">Image</TableHead>
               <TableHead className="w-28">Page</TableHead>
               <TableHead className="w-28">Country</TableHead>
-              <TableHead className="w-24">Value</TableHead>
+              <TableHead className="w-32">Value</TableHead>
               <TableHead className="w-16">Year</TableHead>
               <TableHead>Issue or set</TableHead>
               <TableHead className="w-36">Priority</TableHead>
