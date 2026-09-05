@@ -3,17 +3,18 @@ import { z } from "zod";
 
 const MODEL = "google/gemini-3.1-pro-preview";
 
-const BRIEF_INSTRUCTIONS = `Write a brief of at most 250 words with these four headings:
+const BRIEF_INSTRUCTIONS = `Write a brief of at most 120 words in total, as four single-line answers with these exact labels, each answer one or two sentences at most:
 
-What this is. The issue, when and why it was released, and anything historically notable about it.
+What it is: The issue, when and why it was released, and anything historically notable about it.
 
-Why collectors care. Its standing among collectors, whether it is scarce, sought after or common, and why.
+Why it matters: Its standing among collectors, whether it is scarce, sought after or common, and why.
 
-What decides its worth. The specific physical factors that separate a valuable copy from an ordinary one for this particular item: gum state, printing variety, perforation, overprint spacing, centring, certificates. Be concrete about this item, not generic.
+What decides its worth: The specific physical factors that separate a valuable copy from an ordinary one for this particular item: gum state, printing variety, perforation, overprint spacing, centring, certificates. Be concrete about this item, not generic.
 
-What to do next. What to have an expert examine, and whether a certificate is normally expected for material like this.
+Get checked: What to have an expert examine, and whether a certificate is normally expected for material like this.
 
-Write in plain English for someone who knows nothing about stamps.`;
+Do not put any prices, values or figures inside the brief. Write in plain English for someone who knows nothing about stamps.`;
+
 
 const ESTIMATE_INSTRUCTIONS = `Then give a rough value estimate in euros.
 
