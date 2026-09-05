@@ -184,7 +184,6 @@ export async function deleteStampsForPage(pageId: string) {
   if (error) throw error;
   const { error: setError } = await supabase.from("stamp_sets").delete().eq("page_id", pageId);
   if (setError) throw setError;
-  if (error) throw error;
   const { error: pageError } = await supabase
     .from("pages")
     .update({ identify_status: "pending", raw_model_output: null, page_notes: null })
