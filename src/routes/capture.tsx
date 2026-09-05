@@ -1,5 +1,6 @@
 import { queryOptions, useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -14,9 +15,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
+import { identifyPage } from "@/lib/identify.functions";
 import { fetchContainers, fetchPages, nextPageLabel, signedCaptureUrl } from "@/lib/triage";
+
 
 const containersQuery = queryOptions({ queryKey: ["containers"], queryFn: fetchContainers });
 const pagesQuery = queryOptions({ queryKey: ["pages"], queryFn: () => fetchPages() });
