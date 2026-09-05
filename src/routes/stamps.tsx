@@ -3,7 +3,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Info } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { SIGNIFICANCE_LABELS, SignificanceBadgeClass } from "@/components/market-lookup";
+import {
+  EstimateAllHighPriority,
+  EstimateCell,
+  type EstimateTarget,
+} from "@/components/estimate-cell";
+import { SIGNIFICANCE_LABELS } from "@/components/market-lookup";
 import { SetDetail, StampDetail } from "@/components/record-detail";
 import { StampCrop } from "@/components/stamp-crop";
 import { Badge } from "@/components/ui/badge";
@@ -35,8 +40,9 @@ import {
 } from "@/components/ui/tooltip";
 import {
   PRIORITY_TIER_LABELS,
+  priorityDotClass,
   priorityTier,
-  priorityTierBadgeClass,
+  whyThisIsHere,
   type PriorityTier,
 } from "@/lib/priority";
 import {
@@ -47,6 +53,7 @@ import {
   type ReviewSet,
 } from "@/lib/triage";
 import { cn } from "@/lib/utils";
+
 
 function euro(value: number | null) {
   return value === null ? "?" : `EUR ${value.toLocaleString("en-GB")}`;
