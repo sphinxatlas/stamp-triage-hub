@@ -118,13 +118,15 @@ function Capture() {
       if (updateError) throw updateError;
 
       const url = await signedCaptureUrl(path);
-      return { label: targetLabel, url };
+      return { label: targetLabel, url, pageId: targetId };
     },
     onSuccess: (data) => {
       setResult(data);
+      setDetected(null);
       setFile(null);
       setPageId("");
       toast.success(`Saved capture for ${data.label}`);
+
       queryClient.invalidateQueries({ queryKey: ["pages"] });
     },
     onError: (error: Error) => toast.error(error.message),
