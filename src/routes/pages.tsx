@@ -38,6 +38,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { IdentifyRunPanel, useIdentifyRun } from "@/components/identify-run";
 import { supabase } from "@/integrations/supabase/client";
 import { identifyPage } from "@/lib/identify.functions";
 import {
@@ -57,17 +58,6 @@ const countsQuery = queryOptions({
   queryFn: fetchPageStampCounts,
 });
 
-type RunState = "pending" | "running" | "done" | "failed";
-type RunItem = { id: string; label: string; state: RunState; error?: string };
-
-async function countSetsForPage(pageId: string) {
-  const { count, error } = await supabase
-    .from("stamp_sets")
-    .select("id", { count: "exact", head: true })
-    .eq("page_id", pageId);
-  if (error) return 0;
-  return count ?? 0;
-}
 
 
 async function fetchThumbnails(paths: string[]) {
