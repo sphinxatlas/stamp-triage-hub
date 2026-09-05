@@ -112,12 +112,8 @@ function Pages() {
   const [containerFilter, setContainerFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [run, setRun] = useState<RunItem[] | null>(null);
-  const [runIndex, setRunIndex] = useState(0);
-  const [running, setRunning] = useState(false);
-  const [totals, setTotals] = useState({ stamps: 0, sets: 0 });
 
-  const identifyFn = useServerFn(identifyPage);
+  const { run, active: running, start: startRun } = useIdentifyRun();
 
   const paths = pages.map((page) => page.photo_path).filter((path): path is string => !!path);
   const { data: thumbs } = useSuspenseQuery(
@@ -153,6 +149,7 @@ function Pages() {
       "page-detail",
       "page-stamps",
       "stamps",
+      "review-queue",
       "review-stamps",
       "review-sets",
       "stamp-sets",
@@ -162,58 +159,8 @@ function Pages() {
     }
   }, [queryClient]);
 
-  useEffect(() => {
-    if (!running) return;
-    const handler = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = "";
-    };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, [running]);
-
   const labelOf = (id: string) => pages.find((page) => page.id === id)?.label ?? id;
 
-  const startRun = async (ids: string[]) => {
-    if (ids.length === 0) return;
-    setRunning(true);
-    setTotals({ stamps: 0, sets: 0 });
-    let items: RunItem[] = ids.map((id) => ({ id, label: labelOf(id), state: "pending" }));
-    setRun(items);
-    setRunIndex(0);
-    let stampTotal = 0;
-    let setTotal = 0;
-
-    for (let index = 0; index < ids.length; index += 1) {
-      const id = ids[index]!;
-      setRunIndex(index);
-      items = items.map((item) => (item.id === id ? { ...item, state: "running" } : item));
-      setRun(items);
-      try {
-        const result = await identifyFn({ data: { page_id: id } });
-        stampTotal += result.stamps.length;
-        setTotal += await countSetsForPage(id);
-        items = items.map((item) => (item.id === id ? { ...item, state: "done" } : item));
-      } catch (error) {
-        items = items.map((item) =>
-          item.id === id
-            ? { ...item, state: "failed", error: (error as Error).message ?? "Failed" }
-            : item,
-        );
-      }
-      setRun(items);
-      setTotals({ stamps: stampTotal, sets: setTotal });
-    }
-
-    setRunning(false);
-    const failed = items.filter((item) => item.state === "failed").length;
-    if (failed === 0) toast.success(`Identified ${items.length} page(s)`);
-    else toast.error(`${failed} page(s) failed`);
-    refreshAll();
-  };
-
-  const finished = run && !running;
-  const failedItems = (run ?? []).filter((item) => item.state === "failed");
 
   return (
     <div className="space-y-6">
