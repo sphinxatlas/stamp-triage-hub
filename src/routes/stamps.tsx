@@ -402,16 +402,16 @@ function Stamps() {
           </TableBody>
         </Table>
       ) : (
-        <Table className="min-w-[900px]">
+        <Table className="w-full table-fixed">
           <TableHeader>
             <TableRow>
-              <TableHead>Members</TableHead>
+              <TableHead className="w-52">Members</TableHead>
               <TableHead>Set</TableHead>
-              <TableHead>Catalogue range</TableHead>
-              <TableHead>Present</TableHead>
-              <TableHead>Completeness</TableHead>
-              <TableHead>Priority</TableHead>
-              <TableHead className="text-right">
+              <TableHead className="w-32">Catalogue</TableHead>
+              <TableHead className="w-20">Present</TableHead>
+              <TableHead className="w-28">Complete</TableHead>
+              <TableHead className="w-36">Priority</TableHead>
+              <TableHead className="w-40 text-right">
                 <EstimateHeader />
               </TableHead>
               <TableHead>Review status</TableHead>
@@ -454,8 +454,8 @@ function Stamps() {
                         ) : null}
                       </div>
                     </TableCell>
-                    <TableCell>
-                      <p className="font-medium">{item.set_name}</p>
+                    <TableCell className="truncate" title={item.set_name}>
+                      <p className="truncate font-medium">{item.set_name}</p>
                       <p className="text-xs text-muted-foreground">
                         {item.container_label} · {item.page_label}
                       </p>
@@ -476,12 +476,14 @@ function Stamps() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge className={priorityTierBadgeClass(priorityTier(item.priority_score))}>
-                        {PRIORITY_TIER_LABELS[priorityTier(item.priority_score)]}
-                      </Badge>
+                      <PriorityCell score={item.priority_score} reasons={item.priority_reasons} />
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-right">
-                      {range(item.value_low, item.value_high)}
+                      {item.value_low === null && item.value_high === null ? (
+                        <EstimateCell kind="set" id={item.id} />
+                      ) : (
+                        range(item.value_low, item.value_high)
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge variant="secondary">{item.review_status}</Badge>
