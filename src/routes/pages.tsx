@@ -202,7 +202,8 @@ function PageDetail({
   const { data: photo } = useSuspenseQuery(
     queryOptions({
       queryKey: ["page-photo", page.photo_path],
-      queryFn: () => (page.photo_path ? fetchThumbnails([page.photo_path]) : {}),
+      queryFn: (): Promise<Record<string, string>> =>
+        page.photo_path ? fetchThumbnails([page.photo_path]) : Promise.resolve({}),
     }),
   );
 
