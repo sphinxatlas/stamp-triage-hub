@@ -15,6 +15,68 @@ What to do next. What to have an expert examine, and whether a certificate is no
 
 Write in plain English for someone who knows nothing about stamps.`;
 
+const ESTIMATE_INSTRUCTIONS = `Then give a rough value estimate in euros.
+
+catalogue_low and catalogue_high: the range you believe a major catalogue quotes for this item in sound unused condition. State the range wide enough to reflect your uncertainty.
+
+realistic_low and realistic_high: what the owner might actually realise selling it. This is much lower than catalogue. A dealer buying outright typically pays 10 to 30 percent of catalogue. A specialist auction may realise 25 to 50 percent for mid-value classics, and more only for genuinely superb material with a certificate. Apply that reduction rather than repeating the catalogue figure.
+
+basis: state in one sentence what your figure rests on, and be honest. Say whether you actually recall values for this specific issue, or are inferring from the era, country and type. Inferring is acceptable, but say so.
+
+confidence: 0 to 1, reflecting how well you know this issue's value specifically. Use below 0.4 whenever you are inferring rather than recalling.
+
+biggest_unknown: the single physical factor most likely to move the real figure, for example whether the gum is never hinged, or which printing the overprint belongs to.
+
+Set can_estimate to false and leave every number null when you do not recognise the issue well enough to give a figure that means anything. A refusal is more useful than a fabricated number. Do not estimate for common modern material.
+
+Return ONLY a JSON object, with no markdown fence, in exactly this shape:
+{"brief": string, "estimate": {"can_estimate": boolean, "currency": "EUR", "catalogue_low": number|null, "catalogue_high": number|null, "realistic_low": number|null, "realistic_high": number|null, "basis": string, "confidence": number, "biggest_unknown": string}}`;
+
+const estimateSchema = z.object({
+  can_estimate: z.boolean(),
+  currency: z.string().default("EUR"),
+  catalogue_low: z.number().nullable().default(null),
+  catalogue_high: z.number().nullable().default(null),
+  realistic_low: z.number().nullable().default(null),
+  realistic_high: z.number().nullable().default(null),
+  basis: z.string().default(""),
+  confidence: z.number().default(0),
+  biggest_unknown: z.string().default(""),
+});
+
+export type ValueEstimate = z.infer<typeof estimateSchema>;
+
+const payloadSchema = z.object({ brief: z.string(), estimate: estimateSchema });
+
+function parsePayload(text: string) {
+  const cleaned = text
+    .replace(/^```(?:json)?/i, "")
+    .replace(/```$/, "")
+    .trim();
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  if (start === -1 || end === -1) return null;
+  try {
+    return payloadSchema.parse(JSON.parse(cleaned.slice(start, end + 1)));
+  } catch {
+    return null;
+  }
+}
+
+function buildBasisText(estimate: ValueEstimate) {
+  const parts: string[] = [];
+  if (!estimate.can_estimate) {
+    parts.push(estimate.basis || "The AI did not recognise this issue well enough to give a figure.");
+  } else {
+    parts.push(estimate.basis);
+    if (estimate.catalogue_low !== null || estimate.catalogue_high !== null) {
+      parts.push(`Catalogue reference: EUR ${estimate.catalogue_low ?? "?"} to ${estimate.catalogue_high ?? "?"}.`);
+    }
+    if (estimate.biggest_unknown) parts.push(`Biggest unknown: ${estimate.biggest_unknown}`);
+  }
+  return parts.filter(Boolean).join(" ");
+}
+
 function line(label: string, value: unknown) {
   if (value === null || value === undefined || String(value).trim() === "") return null;
   return `${label}: ${String(value)}`;
@@ -106,17 +168,50 @@ export const researchBrief = createServerFn({ method: "POST" })
 
     const prompt = `You are briefing the owner of an inherited stamp collection on one item so they can decide whether it is worth taking to a professional valuer. Here are the recorded details:\n${details
       .filter(Boolean)
-      .join("\n")}\n\n${BRIEF_INSTRUCTIONS}`;
+      .join("\n")}\n\n${BRIEF_INSTRUCTIONS}\n\n${ESTIMATE_INSTRUCTIONS}`;
 
-    const brief = await callModel(apiKey, prompt);
-    if (!brief) throw new Error("The AI returned an empty brief. Please try again.");
+    let text = await callModel(apiKey, prompt);
+    let payload = parsePayload(text);
+    if (!payload) {
+      text = await callModel(
+        apiKey,
+        `${prompt}\n\nYour previous reply was not valid JSON. Return only the JSON object described above.`,
+      );
+      payload = parsePayload(text);
+    }
+    if (!payload || !payload.brief.trim()) {
+      throw new Error("The AI reply could not be read. Please try again.");
+    }
 
+    const estimate = payload.estimate;
     const generatedAt = new Date().toISOString();
+    const basisText = buildBasisText(estimate);
+    const canEstimate = estimate.can_estimate && estimate.realistic_high !== null;
+
+    const update: Record<string, unknown> = {
+      research_brief: payload.brief.trim(),
+      research_brief_generated_at: generatedAt,
+      value_basis: basisText || null,
+      value_estimated_at: generatedAt,
+      value_low: canEstimate ? estimate.realistic_low : null,
+      value_high: canEstimate ? estimate.realistic_high : null,
+      value_confidence: canEstimate ? estimate.confidence : null,
+      value_source: canEstimate
+        ? `AI estimate, ${MODEL}, ${generatedAt.slice(0, 10)}`
+        : null,
+    };
+
     const { error: updateError } = await supabaseAdmin
       .from(table)
-      .update({ research_brief: brief, research_brief_generated_at: generatedAt } as never)
+      .update(update as never)
       .eq("id", data.id);
     if (updateError) throw new Error(updateError.message);
 
-    return { brief, generated_at: generatedAt };
+    return {
+      brief: payload.brief.trim(),
+      generated_at: generatedAt,
+      estimate: { ...estimate, can_estimate: canEstimate },
+      value_basis: basisText,
+      value_source: (update["value_source"] as string | null) ?? null,
+    };
   });

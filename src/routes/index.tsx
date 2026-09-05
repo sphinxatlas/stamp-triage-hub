@@ -10,9 +10,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { fetchDashboard } from "@/lib/triage";
+import { fetchDashboard, fetchTopValues } from "@/lib/triage";
 
 const dashboardQuery = queryOptions({ queryKey: ["dashboard"], queryFn: fetchDashboard });
+const topValuesQuery = queryOptions({ queryKey: ["dashboard", "top-values"], queryFn: fetchTopValues });
+
+function euro(value: number | null) {
+  return value === null ? "?" : `EUR ${value.toLocaleString("en-GB")}`;
+}
 
 export const Route = createFileRoute("/")({
   ssr: false,
@@ -37,6 +42,7 @@ export const Route = createFileRoute("/")({
 
 function Dashboard() {
   const { data } = useSuspenseQuery(dashboardQuery);
+  const { data: topValues } = useSuspenseQuery(topValuesQuery);
 
   return (
     <div className="space-y-6">
@@ -76,6 +82,43 @@ function Dashboard() {
           <CardContent className="text-3xl font-semibold">{data.containerCount}</CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base font-medium">Top 10 by estimated value</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            These figures are AI guesses from photographs, not valuations.
+          </p>
+        </CardHeader>
+        <CardContent>
+          {topValues.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No estimates yet. Ask for a research brief on a high priority item to get one.
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Item</TableHead>
+                  <TableHead>Kind</TableHead>
+                  <TableHead className="text-right">Est. sale value</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {topValues.map((item) => (
+                  <TableRow key={`${item.kind}-${item.id}`}>
+                    <TableCell>{item.label}</TableCell>
+                    <TableCell className="text-muted-foreground">{item.kind}</TableCell>
+                    <TableCell className="text-right">
+                      {euro(item.value_low)} to {euro(item.value_high)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
 
       <section className="space-y-2">
         <h2 className="text-lg font-medium">Stamps by country</h2>
