@@ -73,6 +73,29 @@ Return one JSON object and nothing else. No prose, no markdown fences. Use exact
       "format": "single" | "block" | "sheet" | "on_cover" | "se_tenant",
       "faults_suggested": string[],
       "condition_notes": string or null,
+      "significance": string or null,
+      "significance_level": "key_issue" | "notable" | "ordinary" | "unknown",
+      "forgery_risk": "high" | "medium" | "low" | "unknown",
+      "variants_to_check": string or null,
+      "confidence": number,
+      "needs_review": boolean,
+      "reasoning": string
+    }
+  ],
+  "sets": [
+    {
+      "set_name": string,
+      "country": string or null,
+      "year_from": integer or null,
+      "year_to": integer or null,
+      "catalogue_system": string or null,
+      "catalogue_range": string or null,
+      "item_count": integer or null,
+      "member_indexes": integer[],
+      "significance": string or null,
+      "significance_level": "key_issue" | "notable" | "ordinary" | "unknown",
+      "forgery_risk": "high" | "medium" | "low" | "unknown",
+      "variants_to_check": string or null,
       "confidence": number,
       "needs_review": boolean,
       "reasoning": string
