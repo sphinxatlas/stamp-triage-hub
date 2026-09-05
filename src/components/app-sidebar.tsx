@@ -1,6 +1,8 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { LayoutDashboard, Camera, CheckCircle2, Boxes, Stamp, Files } from "lucide-react";
 
+import { IdentifyRunIndicator } from "@/components/identify-run";
+
 import {
   Sidebar,
   SidebarContent,

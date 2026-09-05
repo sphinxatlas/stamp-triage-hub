@@ -87,10 +87,7 @@ export const researchBrief = createServerFn({ method: "POST" })
             ),
             line("Denomination", [row["denomination"], row["currency"]].filter(Boolean).join(" ")),
             line("Format", row["format"]),
-            line(
-              "Overprint or surcharge",
-              row["variants_to_check"] ?? row["significance"] ? "possibly, see notes" : null,
-            ),
+            line("Overprint or surcharge noted", row["condition_notes"]),
             line("Notes recorded", row["significance"]),
             line("Variants flagged", row["variants_to_check"]),
           ]
