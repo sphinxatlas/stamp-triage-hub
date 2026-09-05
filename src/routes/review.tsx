@@ -224,6 +224,9 @@ function Review() {
                   </p>
                   <div className="flex flex-wrap gap-1">
                     <Badge variant="secondary">{stamp.review_status}</Badge>
+                    <Badge className={priorityTierBadgeClass(priorityTier(stamp.priority_score))}>
+                      {PRIORITY_TIER_LABELS[priorityTier(stamp.priority_score)]}
+                    </Badge>
                     {stamp.significance_level === "key_issue" ||
                     stamp.significance_level === "notable" ? (
                       <Badge className={SignificanceBadgeClass(stamp.significance_level)}>
@@ -231,6 +234,9 @@ function Review() {
                       </Badge>
                     ) : null}
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    {whyThisIsHere(stamp.priority_reasons)}
+                  </p>
                 </div>
               </button>
             ))}
