@@ -114,7 +114,8 @@ function toSetEdits(record: ReviewSet): SetEdits {
 
 function Review() {
   const { data } = useSuspenseQuery(queueQuery);
-  const { data: sets } = useSuspenseQuery(setsQuery);
+  const { data: setsData } = useSuspenseQuery(setsQuery);
+  const sets = setsData.sets;
   const [view, setView] = useState<"stamps" | "sets">("stamps");
   const [filter, setFilter] = useState<string>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -191,7 +192,7 @@ function Review() {
       </div>
 
       {view === "sets" ? (
-        <SetsPanel sets={visibleSets} />
+        <SetsPanel sets={visibleSets} photoUrls={setsData.photoUrls} />
       ) : visible.length === 0 ? (
         <p className="rounded-lg border p-6 text-muted-foreground">Nothing left to review</p>
       ) : (
