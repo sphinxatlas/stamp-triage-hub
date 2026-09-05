@@ -523,13 +523,14 @@ function StampDetail({
         </Field>
 
         <MarketLookup
-          initialPhrase={marketSearchPhrase({
+          record={{
             country: edits.country,
-            year_estimate: edits.year_estimate,
+            year: edits.year_estimate,
             issue_name: edits.issue_name,
+            denomination: edits.denomination,
             catalogue_system: edits.catalogue_system,
-            catalogue_number: edits.catalogue_number,
-          })}
+            catalogue_reference: edits.catalogue_number,
+          }}
         />
 
         <Field label="Market notes">
