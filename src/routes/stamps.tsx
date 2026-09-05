@@ -268,8 +268,9 @@ function Stamps() {
         ) : null}
       </div>
 
+      <div className="overflow-x-auto">
       {view === "stamps" ? (
-        <Table>
+        <Table className="min-w-[1100px]">
           <TableHeader>
             <TableRow>
               <TableHead>Image</TableHead>
@@ -354,7 +355,7 @@ function Stamps() {
           </TableBody>
         </Table>
       ) : (
-        <Table>
+        <Table className="min-w-[900px]">
           <TableHeader>
             <TableRow>
               <TableHead>Members</TableHead>
@@ -445,6 +446,7 @@ function Stamps() {
           </TableBody>
         </Table>
       )}
+      </div>
 
       <Sheet open={openStamp !== null} onOpenChange={(open) => !open && setOpenStamp(null)}>
         <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
