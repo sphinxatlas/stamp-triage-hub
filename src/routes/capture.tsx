@@ -24,7 +24,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
-import { identifyPage } from "@/lib/identify.functions";
+import { identifyPage, type DetectedStamp } from "@/lib/identify.functions";
 import { fetchContainers, fetchPages, nextPageLabel, signedCaptureUrl } from "@/lib/triage";
 
 
@@ -61,7 +61,7 @@ function Capture() {
   const [captureType, setCaptureType] = useState("album_page");
   const [file, setFile] = useState<File | null>(null);
   const [result, setResult] = useState<{ label: string; url: string; pageId: string } | null>(null);
-  const [detected, setDetected] = useState<Record<string, unknown>[] | null>(null);
+  const [detected, setDetected] = useState<DetectedStamp[] | null>(null);
   const identifyFn = useServerFn(identifyPage);
 
   const identify = useMutation({
@@ -240,18 +240,16 @@ function Capture() {
                 </TableRow>
               ) : (
                 detected.map((stamp, index) => (
-                  <TableRow key={String(stamp["id"] ?? index)}>
-                    <TableCell>{String(stamp["position_index"] ?? index)}</TableCell>
-                    <TableCell>{(stamp["country"] as string) ?? "—"}</TableCell>
-                    <TableCell>{(stamp["denomination"] as string) ?? "—"}</TableCell>
-                    <TableCell>{(stamp["year_estimate"] as number) ?? "—"}</TableCell>
-                    <TableCell>{stamp["item_type"] as string}</TableCell>
+                  <TableRow key={stamp.id}>
+                    <TableCell>{stamp.position_index ?? index}</TableCell>
+                    <TableCell>{stamp.country ?? "—"}</TableCell>
+                    <TableCell>{stamp.denomination ?? "—"}</TableCell>
+                    <TableCell>{stamp.year_estimate ?? "—"}</TableCell>
+                    <TableCell>{stamp.item_type}</TableCell>
                     <TableCell>
-                      {stamp["confidence"] === null || stamp["confidence"] === undefined
-                        ? "—"
-                        : Number(stamp["confidence"]).toFixed(2)}
+                      {stamp.confidence === null ? "—" : stamp.confidence.toFixed(2)}
                     </TableCell>
-                    <TableCell>{stamp["review_status"] as string}</TableCell>
+                    <TableCell>{stamp.review_status}</TableCell>
                   </TableRow>
                 ))
               )}

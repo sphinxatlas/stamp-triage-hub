@@ -3,6 +3,17 @@ import { z } from "zod";
 
 import { IDENTIFY_PROMPT } from "./identify-prompt";
 
+export type DetectedStamp = {
+  id: string;
+  position_index: number | null;
+  country: string | null;
+  denomination: string | null;
+  year_estimate: number | null;
+  item_type: string;
+  confidence: number | null;
+  review_status: string;
+};
+
 const MODEL = "google/gemini-3.1-pro-preview";
 
 const ITEM_TYPES = ["postage", "revenue", "cinderella", "label", "unknown"] as const;
@@ -204,14 +215,23 @@ export const identifyPage = createServerFn({ method: "POST" })
         };
       });
 
-      let inserted: unknown[] = [];
+      let inserted: DetectedStamp[] = [];
       if (rows.length > 0) {
         const { data: insertedRows, error: insertError } = await supabaseAdmin
           .from("stamps")
           .insert(rows)
           .select("*");
         if (insertError) throw new Error(insertError.message);
-        inserted = insertedRows ?? [];
+        inserted = (insertedRows ?? []).map((row) => ({
+          id: String(row.id),
+          position_index: row.position_index ?? null,
+          country: row.country ?? null,
+          denomination: row.denomination ?? null,
+          year_estimate: row.year_estimate ?? null,
+          item_type: row.item_type,
+          confidence: row.confidence === null ? null : Number(row.confidence),
+          review_status: row.review_status,
+        }));
       }
 
       await supabaseAdmin
@@ -223,7 +243,7 @@ export const identifyPage = createServerFn({ method: "POST" })
         })
         .eq("id", page.id);
 
-      return { stamps: inserted as Record<string, unknown>[] };
+      return { stamps: inserted };
     } catch (error) {
       await supabaseAdmin.from("pages").update({ identify_status: "failed" }).eq("id", page.id);
       throw error instanceof Error ? error : new Error("Identification failed.");
