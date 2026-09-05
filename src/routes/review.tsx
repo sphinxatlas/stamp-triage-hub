@@ -992,11 +992,14 @@ function ResearchBriefBlock({
   const generate = useServerFn(researchBrief);
   const [text, setText] = useState(brief);
   const [when, setWhen] = useState(generatedAt);
+  const [estimate, setEstimate] = useState<EstimateView>(value);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     setText(brief);
     setWhen(generatedAt);
+    setEstimate(value);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [brief, generatedAt, id]);
 
   const run = async () => {
@@ -1005,8 +1008,20 @@ function ResearchBriefBlock({
       const result = await generate({ data: { kind, id } });
       setText(result.brief);
       setWhen(result.generated_at);
+      setEstimate({
+        low: result.estimate.can_estimate ? result.estimate.realistic_low : null,
+        high: result.estimate.can_estimate ? result.estimate.realistic_high : null,
+        confidence: result.estimate.can_estimate ? result.estimate.confidence : null,
+        basis: result.estimate.basis || result.value_basis,
+        estimatedAt: result.generated_at,
+        catalogueLow: result.estimate.can_estimate ? result.estimate.catalogue_low : null,
+        catalogueHigh: result.estimate.can_estimate ? result.estimate.catalogue_high : null,
+        unknown: result.estimate.biggest_unknown,
+      });
       queryClient.invalidateQueries({ queryKey: ["review-queue"] });
       queryClient.invalidateQueries({ queryKey: ["review-sets"] });
+      queryClient.invalidateQueries({ queryKey: ["stamps"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       toast.success("Research brief ready");
     } catch (error) {
       toast.error((error as Error).message || "Could not write the brief");
@@ -1035,10 +1050,11 @@ function ResearchBriefBlock({
             This describes the item, not its price. Use the sold listings below for real prices, and
             a professional valuation for a real figure.
           </p>
+          {estimate.estimatedAt || estimate.basis ? <EstimateBlock estimate={estimate} /> : null}
         </>
       ) : (
         <p className="text-sm text-muted-foreground">
-          Ask for a short plain-English brief on this item before taking it to a valuer.
+          Ask for a short plain-English brief and a rough value estimate for this item.
         </p>
       )}
     </section>
