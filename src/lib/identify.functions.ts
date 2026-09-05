@@ -206,59 +206,7 @@ export const identifyPage = createServerFn({ method: "POST" })
       const detected = Array.isArray(result.stamps) ? result.stamps : [];
       const detectedSets = Array.isArray(result.sets) ? result.sets : [];
 
-      // Sets are inserted first so each stamp can reference the set it belongs to.
-      const setIdByStampIndex = new Map<number, string>();
-      for (const rawSet of detectedSets) {
-        const item = (rawSet ?? {}) as Record<string, unknown>;
-        const name = str(item["set_name"]);
-        if (!name) continue;
-        const confidence = num(item["confidence"]);
-        const significanceLevel = pick(item["significance_level"], SIGNIFICANCE_LEVELS, "unknown");
-        const forgeryRisk = pick(item["forgery_risk"], FORGERY_RISKS, "unknown");
-        const variants = str(item["variants_to_check"]);
-        const yearFrom = num(item["year_from"]);
-        const priority = computePriority({
-          significance_level: significanceLevel,
-          forgery_risk: forgeryRisk,
-          variants_to_check: variants,
-          confidence,
-          year_estimate: yearFrom,
-          needs_review: item["needs_review"] === true,
-        });
-
-        const { data: insertedSet, error: setError } = await supabaseAdmin
-          .from("stamp_sets")
-          .insert({
-            page_id: page.id,
-            set_name: name,
-            country: str(item["country"]),
-            year_from: yearFrom === null ? null : Math.round(yearFrom),
-            year_to: num(item["year_to"]) === null ? null : Math.round(num(item["year_to"])!),
-            catalogue_system: str(item["catalogue_system"]),
-            catalogue_range: str(item["catalogue_range"]),
-            item_count: num(item["item_count"]) === null ? null : Math.round(num(item["item_count"])!),
-            confidence,
-            notes: str(item["reasoning"]),
-            review_status: item["needs_review"] === true ? "flagged_expert" : "pending",
-            priority_score: priority.score,
-            priority_reasons: priority.reasons,
-            significance: str(item["significance"]),
-            significance_level: significanceLevel,
-            forgery_risk: forgeryRisk,
-            variants_to_check: variants,
-          } as never)
-          .select("id")
-          .single();
-        if (setError) throw new Error(setError.message);
-
-        const members = Array.isArray(item["member_indexes"]) ? item["member_indexes"] : [];
-        for (const member of members) {
-          if (typeof member === "number" && Number.isInteger(member)) {
-            setIdByStampIndex.set(member, String((insertedSet as { id: unknown }).id));
-          }
-        }
-      }
-
+      // Stamps are scored first: a set takes the score of its strongest member.
       const rows = detected.map((item, index) => {
         const stamp = (item ?? {}) as Record<string, unknown>;
         const confidence = num(stamp["confidence"]);
@@ -268,6 +216,10 @@ export const identifyPage = createServerFn({ method: "POST" })
         const significanceLevel = pick(stamp["significance_level"], SIGNIFICANCE_LEVELS, "unknown");
         const forgeryRisk = pick(stamp["forgery_risk"], FORGERY_RISKS, "unknown");
         const variants = str(stamp["variants_to_check"]);
+        const country = str(stamp["country"]);
+        const denomination = str(stamp["denomination"]);
+        const currency = str(stamp["currency"]);
+        const isOverprinted = stamp["is_overprinted"] === true;
         const reviewStatus =
           stamp["needs_review"] === true
             ? "flagged_expert"
@@ -285,12 +237,36 @@ export const identifyPage = createServerFn({ method: "POST" })
           confidence,
           year_estimate: yearEstimate,
           format,
-          needs_review: stamp["needs_review"] === true,
+          country,
+          denomination,
+          currency,
+          item_type: itemType,
+          is_overprinted: isOverprinted,
         });
 
         return {
           page_id: page.id,
-          set_id: setIdByStampIndex.get(index) ?? null,
+          set_id: null as string | null,
+          position_index: index,
+          crop_path: null,
+          bbox: resolveBbox(stamp) as never,
+          country,
+          country_inscription: str(stamp["country_inscription"]),
+          year_estimate: yearEstimate === null ? null : Math.round(yearEstimate),
+          year_confidence: num(stamp["year_confidence"]),
+          denomination,
+          currency,
+          issue_name: str(stamp["issue_name"]),
+          catalogue_system: str(stamp["catalogue_system"]),
+          catalogue_number: str(stamp["catalogue_number"]),
+          catalogue_confidence: num(stamp["catalogue_confidence"]),
+          item_type: itemType,
+          mint_or_used: str(stamp["mint_or_used"]),
+          hinged_guess: str(stamp["hinged_guess"]),
+          gum_state: "unknown",
+          format,
+          is_overprinted: isOverprinted,
+
           position_index: index,
           crop_path: null,
           bbox: resolveBbox(stamp) as never,
