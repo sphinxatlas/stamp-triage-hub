@@ -12,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AppSidebar } from "@/components/app-sidebar";
+import { IdentifyRunProvider } from "@/components/identify-run";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
@@ -122,21 +123,24 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-      <SidebarProvider>
-        <div className="flex min-h-screen w-full">
-          <AppSidebar />
-          <div className="flex flex-1 flex-col">
-            <header className="flex h-12 items-center gap-2 border-b px-2">
-              <SidebarTrigger />
-              <span className="text-sm font-medium">Stamp Triage</span>
-            </header>
-            <main className="flex-1 p-6">
-              {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-              <Outlet />
-            </main>
-          </div>
-        </div>
-      </SidebarProvider>
+        {/* The batch identification controller lives here so runs continue across route changes. */}
+        <IdentifyRunProvider>
+          <SidebarProvider>
+            <div className="flex min-h-screen w-full">
+              <AppSidebar />
+              <div className="flex flex-1 flex-col">
+                <header className="flex h-12 items-center gap-2 border-b px-2">
+                  <SidebarTrigger />
+                  <span className="text-sm font-medium">Stamp Triage</span>
+                </header>
+                <main className="flex-1 p-6">
+                  {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+                  <Outlet />
+                </main>
+              </div>
+            </div>
+          </SidebarProvider>
+        </IdentifyRunProvider>
       </TooltipProvider>
       <Toaster />
     </QueryClientProvider>
