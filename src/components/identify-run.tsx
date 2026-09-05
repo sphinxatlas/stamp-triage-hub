@@ -240,7 +240,7 @@ export function IdentifyRunProvider({ children }: { children: ReactNode }) {
 }
 
 export function IdentifyRunPanel() {
-  const { run, active, cancel, labelOf } = useIdentifyRun();
+  const { run, active, briefs, cancel, labelOf } = useIdentifyRun();
   if (!run) return <p className="text-sm text-muted-foreground">No runs yet.</p>;
 
   const total = run.page_ids.length;
