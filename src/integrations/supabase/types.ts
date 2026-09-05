@@ -14,7 +14,205 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      containers: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          label: string
+          type: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          label: string
+          type: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          label?: string
+          type?: string
+        }
+        Relationships: []
+      }
+      pages: {
+        Row: {
+          capture_type: string | null
+          captured_at: string | null
+          container_id: string
+          created_at: string | null
+          id: string
+          identify_status: string
+          label: string
+          page_notes: string | null
+          photo_path: string | null
+          raw_model_output: Json | null
+        }
+        Insert: {
+          capture_type?: string | null
+          captured_at?: string | null
+          container_id: string
+          created_at?: string | null
+          id?: string
+          identify_status?: string
+          label: string
+          page_notes?: string | null
+          photo_path?: string | null
+          raw_model_output?: Json | null
+        }
+        Update: {
+          capture_type?: string | null
+          captured_at?: string | null
+          container_id?: string
+          created_at?: string | null
+          id?: string
+          identify_status?: string
+          label?: string
+          page_notes?: string | null
+          photo_path?: string | null
+          raw_model_output?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pages_container_id_fkey"
+            columns: ["container_id"]
+            isOneToOne: false
+            referencedRelation: "containers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stamps: {
+        Row: {
+          bbox: Json | null
+          catalogue_confidence: number | null
+          catalogue_number: string | null
+          catalogue_system: string | null
+          condition_notes: string | null
+          confidence: number | null
+          country: string | null
+          country_inscription: string | null
+          created_at: string | null
+          crop_path: string | null
+          currency: string | null
+          denomination: string | null
+          faults: string[] | null
+          format: string
+          gum_state: string
+          hinged_guess: string | null
+          id: string
+          issue_name: string | null
+          item_type: string
+          mint_or_used: string | null
+          notes: string | null
+          page_id: string
+          perforation: string | null
+          position_index: number | null
+          quantity: number
+          review_status: string
+          set_name: string | null
+          set_position: string | null
+          tags: string[] | null
+          updated_at: string | null
+          value_confidence: number | null
+          value_high: number | null
+          value_low: number | null
+          value_source: string | null
+          watermark: string | null
+          year_confidence: number | null
+          year_estimate: number | null
+        }
+        Insert: {
+          bbox?: Json | null
+          catalogue_confidence?: number | null
+          catalogue_number?: string | null
+          catalogue_system?: string | null
+          condition_notes?: string | null
+          confidence?: number | null
+          country?: string | null
+          country_inscription?: string | null
+          created_at?: string | null
+          crop_path?: string | null
+          currency?: string | null
+          denomination?: string | null
+          faults?: string[] | null
+          format?: string
+          gum_state?: string
+          hinged_guess?: string | null
+          id?: string
+          issue_name?: string | null
+          item_type?: string
+          mint_or_used?: string | null
+          notes?: string | null
+          page_id: string
+          perforation?: string | null
+          position_index?: number | null
+          quantity?: number
+          review_status?: string
+          set_name?: string | null
+          set_position?: string | null
+          tags?: string[] | null
+          updated_at?: string | null
+          value_confidence?: number | null
+          value_high?: number | null
+          value_low?: number | null
+          value_source?: string | null
+          watermark?: string | null
+          year_confidence?: number | null
+          year_estimate?: number | null
+        }
+        Update: {
+          bbox?: Json | null
+          catalogue_confidence?: number | null
+          catalogue_number?: string | null
+          catalogue_system?: string | null
+          condition_notes?: string | null
+          confidence?: number | null
+          country?: string | null
+          country_inscription?: string | null
+          created_at?: string | null
+          crop_path?: string | null
+          currency?: string | null
+          denomination?: string | null
+          faults?: string[] | null
+          format?: string
+          gum_state?: string
+          hinged_guess?: string | null
+          id?: string
+          issue_name?: string | null
+          item_type?: string
+          mint_or_used?: string | null
+          notes?: string | null
+          page_id?: string
+          perforation?: string | null
+          position_index?: number | null
+          quantity?: number
+          review_status?: string
+          set_name?: string | null
+          set_position?: string | null
+          tags?: string[] | null
+          updated_at?: string | null
+          value_confidence?: number | null
+          value_high?: number | null
+          value_low?: number | null
+          value_source?: string | null
+          watermark?: string | null
+          year_confidence?: number | null
+          year_estimate?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stamps_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
