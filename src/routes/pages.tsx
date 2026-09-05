@@ -4,17 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { ConfirmButton } from "@/components/confirm-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -338,43 +328,5 @@ function PageDetail({
         </TableBody>
       </Table>
     </section>
-  );
-}
-
-export function ConfirmButton({
-  label,
-  title,
-  description,
-  actionLabel,
-  onConfirm,
-  disabled,
-  variant = "outline",
-}: {
-  label: string;
-  title: string;
-  description: string;
-  actionLabel: string;
-  onConfirm: () => void;
-  disabled?: boolean;
-  variant?: "outline" | "destructive" | "default";
-}) {
-  return (
-    <AlertDialog>
-      <AlertDialogTrigger asChild>
-        <Button variant={variant} size="sm" disabled={disabled}>
-          {label}
-        </Button>
-      </AlertDialogTrigger>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{title}</AlertDialogTitle>
-          <AlertDialogDescription>{description}</AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm}>{actionLabel}</AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
   );
 }
