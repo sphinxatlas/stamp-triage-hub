@@ -161,18 +161,14 @@ export function priorityTierBadgeClass(tier: PriorityTier) {
 }
 
 const REASON_PHRASES: Record<string, string> = {
-  "Known key issue": "collectors seek this issue out",
-  "Notable issue": "this issue is a bit above average",
   "Overprint or surcharge": "it has extra text printed over the original design",
   "Pre-1900": "it looks older than 1900",
   "Pre-1920": "it looks older than 1920",
   "Pre-1950": "it looks older than 1950",
   "Not a single stamp": "it is not a single stamp",
   "Colonial or occupation issue": "it comes from a colony or an occupied area",
-  "Commonly forged, needs checking": "issues like this are often faked",
   "High denomination": "it carries a high face value",
   "Country not identified": "the country could not be worked out",
-  "Variant-sensitive": "small printing differences change what it is worth",
   "Low confidence": "the machine was unsure what it is",
   "Modern issue": "it is a modern issue",
   "Not postage": "it is not a postage stamp",

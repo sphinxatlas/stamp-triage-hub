@@ -311,7 +311,7 @@ export const identifyPage = createServerFn({ method: "POST" })
             catalogue_range: str(item["catalogue_range"]),
             item_count: expectedCount === null ? null : Math.round(expectedCount),
             confidence,
-            notes: str(item["note"]) ?? str(item["reasoning"]),
+            notes: str(item["note"]),
             review_status: item["needs_review"] === true ? "flagged_expert" : "pending",
             priority_score: priority.score,
             priority_reasons: priority.reasons,
