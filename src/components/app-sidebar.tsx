@@ -23,7 +23,6 @@ const items = [
   { title: "Export", url: "/export", icon: Download },
 ] as const;
 
-
 export function AppSidebar() {
   const currentPath = useRouterState({ select: (router) => router.location.pathname });
 

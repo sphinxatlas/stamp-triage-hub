@@ -26,12 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   PRIORITY_TIER_LABELS,
   priorityDotClass,
@@ -277,159 +272,170 @@ function Stamps() {
       ) : null}
 
       <div>
-      {view === "stamps" ? (
-        <Table className="w-full table-fixed">
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-16">Image</TableHead>
-              <TableHead className="w-28">Page</TableHead>
-              <TableHead className="w-28">Country</TableHead>
-              <TableHead className="w-32">Value</TableHead>
-              <TableHead className="w-16">Year</TableHead>
-              <TableHead>Issue or set</TableHead>
-              <TableHead className="w-36">Priority</TableHead>
-              <TableHead className="w-28">Review</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.length === 0 ? (
+        {view === "stamps" ? (
+          <Table className="w-full table-fixed">
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={7} className="text-muted-foreground">
-                  {data.stamps.length === 0
-                    ? "No stamps recorded yet"
-                    : "No stamps match your filters"}
-                </TableCell>
+                <TableHead className="w-16">Image</TableHead>
+                <TableHead className="w-28">Page</TableHead>
+                <TableHead className="w-28">Country</TableHead>
+                <TableHead className="w-32">Value</TableHead>
+                <TableHead className="w-16">Year</TableHead>
+                <TableHead>Issue or set</TableHead>
+                <TableHead className="w-36">Priority</TableHead>
+                <TableHead className="w-28">Review</TableHead>
               </TableRow>
-            ) : (
-              filtered.map((stamp) => {
-                const name = stamp.set_name ?? stamp.issue_name ?? "—";
-                return (
-                <TableRow
-                  key={stamp.id}
-                  className="cursor-pointer"
-                  onClick={() => setOpenStamp(stamp)}
-                >
-                  <TableCell>
-                    <StampCrop
-                      photoUrl={
-                        stamp.page_photo_path ? data.photoUrls[stamp.page_photo_path] : undefined
-                      }
-                      bbox={stamp.bbox}
-                      label={`Stamp on ${stamp.page_label}`}
-                      className="h-14 w-12"
-                    />
-                  </TableCell>
-                  <TableCell className="truncate text-xs text-muted-foreground">
-                    {stamp.page_label}
-                  </TableCell>
-                  <TableCell className="truncate">{stamp.country ?? "—"}</TableCell>
-                  <TableCell className="truncate">
-                    {formatDenomination(stamp.denomination, stamp.currency)}
-                  </TableCell>
-                  <TableCell>{stamp.year_estimate ?? "—"}</TableCell>
-                  <TableCell className="truncate" title={name}>
-                    {name}
-                  </TableCell>
-                  <TableCell>
-                    <PriorityCell
-                      score={stamp.priority_score}
-                      reasons={stamp.priority_reasons}
-                    />
-                  </TableCell>
-                  <TableCell className="truncate">
-                    <Badge variant="secondary">{stamp.review_status}</Badge>
+            </TableHeader>
+            <TableBody>
+              {filtered.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-muted-foreground">
+                    {data.stamps.length === 0
+                      ? "No stamps recorded yet"
+                      : "No stamps match your filters"}
                   </TableCell>
                 </TableRow>
-                );
-              })
-            )}
-
-          </TableBody>
-        </Table>
-      ) : (
-        <Table className="w-full table-fixed">
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-52">Members</TableHead>
-              <TableHead>Set</TableHead>
-              <TableHead className="w-32">Catalogue</TableHead>
-              <TableHead className="w-20">Present</TableHead>
-              <TableHead className="w-28">Complete</TableHead>
-              <TableHead className="w-36">Priority</TableHead>
-              <TableHead>Review status</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredSets.length === 0 ? (
+              ) : (
+                filtered.map((stamp) => {
+                  const name = stamp.set_name ?? stamp.issue_name ?? "—";
+                  return (
+                    <TableRow
+                      key={stamp.id}
+                      className="cursor-pointer"
+                      onClick={() => setOpenStamp(stamp)}
+                    >
+                      <TableCell>
+                        <StampCrop
+                          photoUrl={
+                            stamp.page_photo_path
+                              ? data.photoUrls[stamp.page_photo_path]
+                              : undefined
+                          }
+                          bbox={stamp.bbox}
+                          label={`Stamp on ${stamp.page_label}`}
+                          className="h-14 w-12"
+                        />
+                      </TableCell>
+                      <TableCell className="truncate text-xs text-muted-foreground">
+                        {stamp.page_label}
+                      </TableCell>
+                      <TableCell className="truncate">{stamp.country ?? "—"}</TableCell>
+                      <TableCell className="truncate">
+                        {formatDenomination(stamp.denomination, stamp.currency)}
+                      </TableCell>
+                      <TableCell>{stamp.year_estimate ?? "—"}</TableCell>
+                      <TableCell className="truncate" title={name}>
+                        {name}
+                      </TableCell>
+                      <TableCell>
+                        <PriorityCell
+                          score={stamp.priority_score}
+                          reasons={stamp.priority_reasons}
+                        />
+                      </TableCell>
+                      <TableCell className="truncate">
+                        <Badge variant="secondary">{stamp.review_status}</Badge>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        ) : (
+          <Table className="w-full table-fixed">
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={7} className="text-muted-foreground">
-                  {setsData.sets.length === 0 ? "No sets recorded yet" : "No sets match your filters"}
-                </TableCell>
+                <TableHead className="w-52">Members</TableHead>
+                <TableHead>Set</TableHead>
+                <TableHead className="w-32">Catalogue</TableHead>
+                <TableHead className="w-20">Present</TableHead>
+                <TableHead className="w-28">Complete</TableHead>
+                <TableHead className="w-36">Priority</TableHead>
+                <TableHead>Review status</TableHead>
               </TableRow>
-            ) : (
-              filteredSets.map((item) => {
-                const complete =
-                  item.item_count === null
-                    ? "Unknown"
-                    : item.member_count >= item.item_count
-                      ? "Complete"
-                      : "Incomplete";
-                return (
-                  <TableRow key={item.id} className="cursor-pointer" onClick={() => setOpenSet(item)}>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        {item.members.slice(0, 4).map((member) => (
-                          <StampCrop
-                            key={member.id}
-                            photoUrl={
-                              member.photo_path ? setsData.photoUrls[member.photo_path] : undefined
-                            }
-                            bbox={member.bbox}
-                            label={item.set_name}
-                            className="h-12 w-10 shrink-0"
-                          />
-                        ))}
-                        {item.member_count > 4 ? (
-                          <span className="text-xs text-muted-foreground">
-                            +{item.member_count - 4} more
-                          </span>
-                        ) : null}
-                      </div>
-                    </TableCell>
-                    <TableCell className="truncate" title={item.set_name}>
-                      <p className="truncate font-medium">{item.set_name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {item.container_label} · {item.page_label}
-                      </p>
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap">
-                      {[item.catalogue_system, item.catalogue_range].filter(Boolean).join(" ") ||
-                        "—"}
-                    </TableCell>
-                    <TableCell>
-                      {item.member_count} of {item.item_count ?? "?"}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={complete === "Complete" ? "default" : "secondary"}
-                        className={cn(complete === "Incomplete" && "bg-muted text-muted-foreground")}
-                      >
-                        {complete}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <PriorityCell score={item.priority_score} reasons={item.priority_reasons} />
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{item.review_status}</Badge>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
-      )}
+            </TableHeader>
+            <TableBody>
+              {filteredSets.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-muted-foreground">
+                    {setsData.sets.length === 0
+                      ? "No sets recorded yet"
+                      : "No sets match your filters"}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredSets.map((item) => {
+                  const complete =
+                    item.item_count === null
+                      ? "Unknown"
+                      : item.member_count >= item.item_count
+                        ? "Complete"
+                        : "Incomplete";
+                  return (
+                    <TableRow
+                      key={item.id}
+                      className="cursor-pointer"
+                      onClick={() => setOpenSet(item)}
+                    >
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          {item.members.slice(0, 4).map((member) => (
+                            <StampCrop
+                              key={member.id}
+                              photoUrl={
+                                member.photo_path
+                                  ? setsData.photoUrls[member.photo_path]
+                                  : undefined
+                              }
+                              bbox={member.bbox}
+                              label={item.set_name}
+                              className="h-12 w-10 shrink-0"
+                            />
+                          ))}
+                          {item.member_count > 4 ? (
+                            <span className="text-xs text-muted-foreground">
+                              +{item.member_count - 4} more
+                            </span>
+                          ) : null}
+                        </div>
+                      </TableCell>
+                      <TableCell className="truncate" title={item.set_name}>
+                        <p className="truncate font-medium">{item.set_name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {item.container_label} · {item.page_label}
+                        </p>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {[item.catalogue_system, item.catalogue_range].filter(Boolean).join(" ") ||
+                          "—"}
+                      </TableCell>
+                      <TableCell>
+                        {item.member_count} of {item.item_count ?? "?"}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={complete === "Complete" ? "default" : "secondary"}
+                          className={cn(
+                            complete === "Incomplete" && "bg-muted text-muted-foreground",
+                          )}
+                        >
+                          {complete}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <PriorityCell score={item.priority_score} reasons={item.priority_reasons} />
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{item.review_status}</Badge>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        )}
       </div>
 
       <Sheet open={openStamp !== null} onOpenChange={(open) => !open && setOpenStamp(null)}>

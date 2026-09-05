@@ -1,5 +1,10 @@
 import { supabase } from "@/integrations/supabase/client";
-import { computePriority, computeSetPriority, priorityTier, type PriorityTier } from "@/lib/priority";
+import {
+  computePriority,
+  computeSetPriority,
+  priorityTier,
+  type PriorityTier,
+} from "@/lib/priority";
 
 export const CONTAINER_TYPES = ["album", "box", "loose_sheet", "review_book"] as const;
 
@@ -111,7 +116,9 @@ export async function fetchDashboard() {
   const [stamps, sets, containers, pages] = await Promise.all([
     supabase
       .from("stamps")
-      .select("id, country, issue_name, denomination, currency, page_id, priority_score, priority_reasons")
+      .select(
+        "id, country, issue_name, denomination, currency, page_id, priority_score, priority_reasons",
+      )
       .neq("review_status", "rejected"),
     supabase.from("stamp_sets").select("id"),
     supabase.from("containers").select("id, label"),
@@ -185,11 +192,7 @@ export async function fetchPageStampCounts() {
 }
 
 export async function fetchPageDetail(pageId: string) {
-  const { data, error } = await supabase
-    .from("pages")
-    .select("*")
-    .eq("id", pageId)
-    .single();
+  const { data, error } = await supabase.from("pages").select("*").eq("id", pageId).single();
   if (error) throw error;
   return data as Page & { raw_model_output: unknown };
 }
@@ -303,13 +306,7 @@ export const FAULT_OPTIONS = [
   "fading",
 ] as const;
 
-export const ITEM_TYPE_OPTIONS = [
-  "postage",
-  "revenue",
-  "cinderella",
-  "label",
-  "unknown",
-] as const;
+export const ITEM_TYPE_OPTIONS = ["postage", "revenue", "cinderella", "label", "unknown"] as const;
 
 export const FORMAT_OPTIONS = ["single", "block", "sheet", "on_cover", "se_tenant"] as const;
 export const MINT_OPTIONS = ["mint", "used", "unknown"] as const;
@@ -398,13 +395,10 @@ export async function fetchAllSets() {
 }
 
 export async function fetchReviewSets(statuses: string[] | null = ["pending", "flagged_expert"]) {
-  let query = supabase
-    .from("stamp_sets")
-    .select("*, pages!inner(label, containers!inner(label))");
+  let query = supabase.from("stamp_sets").select("*, pages!inner(label, containers!inner(label))");
   if (statuses) query = query.in("review_status", statuses);
   const { data, error } = await query.order("created_at", { ascending: false });
   if (error) throw error;
-
 
   const rows = (data ?? []) as unknown as Array<
     Record<string, unknown> & { pages: { label: string; containers: { label: string } } }
@@ -782,26 +776,27 @@ export async function fetchExportData(containerId?: string): Promise<ExportData>
     if (stamp.set_id) (membersBySet[stamp.set_id] ??= []).push(stamp.id);
   }
 
-  const sets: ExportSet[] = ((setsResult.data ?? []) as unknown as Array<Record<string, unknown>>)
-    .map((row) => {
-      const id = String(row["id"]);
-      const meta = pageMeta.get(String(row["page_id"]))!;
-      const members = membersBySet[id] ?? [];
-      const expected = row["item_count"] === null ? null : Number(row["item_count"]);
-      return {
-        id,
-        container_label: meta.container_label,
-        page_label: meta.page_label,
-        set_name: String(row["set_name"]),
-        catalogue_system: (row["catalogue_system"] as string | null) ?? null,
-        catalogue_range: (row["catalogue_range"] as string | null) ?? null,
-        item_count: expected,
-        present_count: members.length,
-        is_complete: expected !== null && expected > 0 ? members.length >= expected : null,
-        priority_score: Number(row["priority_score"] ?? 0),
-        member_ids: members,
-      };
-    });
+  const sets: ExportSet[] = (
+    (setsResult.data ?? []) as unknown as Array<Record<string, unknown>>
+  ).map((row) => {
+    const id = String(row["id"]);
+    const meta = pageMeta.get(String(row["page_id"]))!;
+    const members = membersBySet[id] ?? [];
+    const expected = row["item_count"] === null ? null : Number(row["item_count"]);
+    return {
+      id,
+      container_label: meta.container_label,
+      page_label: meta.page_label,
+      set_name: String(row["set_name"]),
+      catalogue_system: (row["catalogue_system"] as string | null) ?? null,
+      catalogue_range: (row["catalogue_range"] as string | null) ?? null,
+      item_count: expected,
+      present_count: members.length,
+      is_complete: expected !== null && expected > 0 ? members.length >= expected : null,
+      priority_score: Number(row["priority_score"] ?? 0),
+      member_ids: members,
+    };
+  });
 
   const countByPage: Record<string, number> = {};
   for (const row of stampRows) {

@@ -94,9 +94,7 @@ function Containers() {
   const createPage = useMutation({
     mutationFn: async (container: Container) => {
       const label = await nextPageLabel(container.label, container.id);
-      const { error } = await supabase
-        .from("pages")
-        .insert({ label, container_id: container.id });
+      const { error } = await supabase.from("pages").insert({ label, container_id: container.id });
       if (error) throw error;
       return label;
     },
@@ -162,10 +160,7 @@ function Containers() {
               </div>
             </div>
             <DialogFooter>
-              <Button
-                onClick={() => createContainer.mutate()}
-                disabled={createContainer.isPending}
-              >
+              <Button onClick={() => createContainer.mutate()} disabled={createContainer.isPending}>
                 Save
               </Button>
             </DialogFooter>

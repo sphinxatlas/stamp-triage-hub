@@ -371,8 +371,8 @@ function ExportPage() {
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            The same three spreadsheets, plus a cut-out picture of every stamp and the original
-            page photos. This takes a while for large collections, so keep this page open.
+            The same three spreadsheets, plus a cut-out picture of every stamp and the original page
+            photos. This takes a while for large collections, so keep this page open.
           </p>
           <Button disabled={busy !== null} onClick={() => void runZip()}>
             {busy === "zip" ? "Working…" : "Export data and images (ZIP)"}

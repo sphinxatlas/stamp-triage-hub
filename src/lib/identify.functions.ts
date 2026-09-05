@@ -78,7 +78,10 @@ function toBase64(bytes: Uint8Array) {
 }
 
 function extractJson(text: string) {
-  const cleaned = text.replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
+  const cleaned = text
+    .replace(/^```(?:json)?/i, "")
+    .replace(/```$/, "")
+    .trim();
   try {
     return JSON.parse(cleaned);
   } catch {
@@ -134,7 +137,9 @@ async function callModel(apiKey: string, dataUrl: string, prompt: string) {
   if (Array.isArray(content)) {
     return content
       .map((part) =>
-        part && typeof part === "object" && "text" in part ? String((part as { text: unknown }).text) : "",
+        part && typeof part === "object" && "text" in part
+          ? String((part as { text: unknown }).text)
+          : "",
       )
       .join("");
   }
@@ -162,7 +167,6 @@ export const identifyPage = createServerFn({ method: "POST" })
     await supabaseAdmin.from("stamps").delete().eq("page_id", page.id);
     await supabaseAdmin.from("stamp_sets").delete().eq("page_id", page.id);
     await supabaseAdmin.from("pages").update({ identify_status: "running" }).eq("id", page.id);
-
 
     const fail = async (rawText: string, message: string) => {
       await supabaseAdmin
@@ -327,7 +331,6 @@ export const identifyPage = createServerFn({ method: "POST" })
           row.priority_reasons = priority.reasons;
         }
       }
-
 
       let inserted: DetectedStamp[] = [];
       if (rows.length > 0) {

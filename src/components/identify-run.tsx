@@ -33,7 +33,6 @@ import {
 } from "@/lib/runs";
 import { fetchPages } from "@/lib/triage";
 
-
 type Ctx = {
   run: IdentifyRun | null;
   active: boolean;
@@ -124,7 +123,6 @@ export function IdentifyRunProvider({ children }: { children: ReactNode }) {
         }
         // Results are written per page, so finished pages are reviewable straight away.
         refreshAll();
-
       }
 
       const finalStatus = await fetchRunStatus(run.id).catch(() => "cancelled");
@@ -235,7 +233,6 @@ export function IdentifyRunPanel() {
         ) : null}
       </div>
 
-
       <ul className="max-h-64 space-y-1 overflow-auto text-sm">
         {run.page_ids.map((id, index) => {
           const failure = run.errors.find((item) => item.page_id === id);
@@ -282,8 +279,7 @@ export function IdentifyRunIndicator() {
       className="w-full space-y-0.5 rounded-md bg-primary/10 px-2 py-1 text-left text-xs font-medium text-primary"
     >
       <span className="block">
-        Identifying: {Math.min(run.current_index + 1, run.page_ids.length)} of{" "}
-        {run.page_ids.length}
+        Identifying: {Math.min(run.current_index + 1, run.page_ids.length)} of {run.page_ids.length}
       </span>
     </button>
   );

@@ -84,7 +84,6 @@ export function computePriority(input: PriorityInput): Priority {
 
   if (year !== null && year >= 1970) add(-30, "Modern issue");
 
-
   if (
     input.item_type === "revenue" ||
     input.item_type === "cinderella" ||
@@ -108,7 +107,6 @@ export function computeSetPriority(input: SetPriorityInput): Priority {
   input.members.forEach((member, index) => {
     if (index === 0 || member.score > best.score) best = member;
   });
-
 
   let score = best.score;
   const reasons = [...best.reasons];

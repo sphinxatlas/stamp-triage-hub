@@ -367,7 +367,6 @@ export function StampDetail({
           />
         </Field>
 
-
         <MarketLookup
           record={{
             country: edits.country,
@@ -404,13 +403,7 @@ export function StampDetail({
   );
 }
 
-export function SetDetail({
-  record,
-  onRemoved,
-}: {
-  record: ReviewSet;
-  onRemoved: () => void;
-}) {
+export function SetDetail({ record, onRemoved }: { record: ReviewSet; onRemoved: () => void }) {
   const queryClient = useQueryClient();
   const [edits, setEdits] = useState<SetEdits>(() => toSetEdits(record));
 
@@ -545,7 +538,6 @@ export function SetDetail({
             onChange={(event) => set("notes", event.target.value || null)}
           />
         </Field>
-
 
         <MarketLookup
           record={{
