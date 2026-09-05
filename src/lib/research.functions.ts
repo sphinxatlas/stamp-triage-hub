@@ -168,17 +168,50 @@ export const researchBrief = createServerFn({ method: "POST" })
 
     const prompt = `You are briefing the owner of an inherited stamp collection on one item so they can decide whether it is worth taking to a professional valuer. Here are the recorded details:\n${details
       .filter(Boolean)
-      .join("\n")}\n\n${BRIEF_INSTRUCTIONS}`;
+      .join("\n")}\n\n${BRIEF_INSTRUCTIONS}\n\n${ESTIMATE_INSTRUCTIONS}`;
 
-    const brief = await callModel(apiKey, prompt);
-    if (!brief) throw new Error("The AI returned an empty brief. Please try again.");
+    let text = await callModel(apiKey, prompt);
+    let payload = parsePayload(text);
+    if (!payload) {
+      text = await callModel(
+        apiKey,
+        `${prompt}\n\nYour previous reply was not valid JSON. Return only the JSON object described above.`,
+      );
+      payload = parsePayload(text);
+    }
+    if (!payload || !payload.brief.trim()) {
+      throw new Error("The AI reply could not be read. Please try again.");
+    }
 
+    const estimate = payload.estimate;
     const generatedAt = new Date().toISOString();
+    const basisText = buildBasisText(estimate);
+    const canEstimate = estimate.can_estimate && estimate.realistic_high !== null;
+
+    const update: Record<string, unknown> = {
+      research_brief: payload.brief.trim(),
+      research_brief_generated_at: generatedAt,
+      value_basis: basisText || null,
+      value_estimated_at: generatedAt,
+      value_low: canEstimate ? estimate.realistic_low : null,
+      value_high: canEstimate ? estimate.realistic_high : null,
+      value_confidence: canEstimate ? estimate.confidence : null,
+      value_source: canEstimate
+        ? `AI estimate, ${MODEL}, ${generatedAt.slice(0, 10)}`
+        : null,
+    };
+
     const { error: updateError } = await supabaseAdmin
       .from(table)
-      .update({ research_brief: brief, research_brief_generated_at: generatedAt } as never)
+      .update(update as never)
       .eq("id", data.id);
     if (updateError) throw new Error(updateError.message);
 
-    return { brief, generated_at: generatedAt };
+    return {
+      brief: payload.brief.trim(),
+      generated_at: generatedAt,
+      estimate: { ...estimate, can_estimate: canEstimate },
+      value_basis: basisText,
+      value_source: (update["value_source"] as string | null) ?? null,
+    };
   });
