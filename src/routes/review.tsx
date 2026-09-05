@@ -934,8 +934,8 @@ function ResearchBriefBlock({
     setBusy(true);
     try {
       const result = await generate({ data: { kind, id } });
-      setText(result.research_brief);
-      setWhen(result.research_brief_generated_at);
+      setText(result.brief);
+      setWhen(result.generated_at);
       queryClient.invalidateQueries({ queryKey: ["review-queue"] });
       queryClient.invalidateQueries({ queryKey: ["review-sets"] });
       toast.success("Research brief ready");
