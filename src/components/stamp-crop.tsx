@@ -12,7 +12,20 @@ export function StampCrop({
   label: string;
   className?: string;
 }) {
-  const box = parseBbox(bbox);
+  const raw = parseBbox(bbox);
+  const PAD = 0.03;
+  const box = raw
+    ? (() => {
+        const x = Math.max(0, raw.x - PAD);
+        const y = Math.max(0, raw.y - PAD);
+        return {
+          x,
+          y,
+          width: Math.min(1 - x, raw.width + PAD * 2 - (raw.x - x <= 0 ? PAD - raw.x : 0)),
+          height: Math.min(1 - y, raw.height + PAD * 2 - (raw.y - y <= 0 ? PAD - raw.y : 0)),
+        };
+      })()
+    : null;
 
   if (!box || !photoUrl) {
     return (

@@ -33,6 +33,40 @@ function str(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value : null;
 }
 
+type Bbox = { x: number; y: number; width: number; height: number };
+
+export function box2dToBbox(value: unknown): Bbox | null {
+  if (!Array.isArray(value) || value.length !== 4) return null;
+  const raw = value.map((v) => (typeof v === "number" && Number.isFinite(v) ? v : NaN));
+  if (raw.some((v) => Number.isNaN(v))) return null;
+  const scaled = raw.some((v) => v > 1) ? raw.map((v) => v / 1000) : raw;
+  const [ymin, xmin, ymax, xmax] = scaled as [number, number, number, number];
+  const x = Math.max(0, Math.min(1, xmin));
+  const y = Math.max(0, Math.min(1, ymin));
+  const width = Math.min(1 - x, xmax - xmin);
+  const height = Math.min(1 - y, ymax - ymin);
+  if (!(width > 0) || !(height > 0)) return null;
+  return { x, y, width, height };
+}
+
+function legacyBbox(value: unknown): Bbox | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const box = value as Record<string, unknown>;
+  const keys = ["x", "y", "width", "height"] as const;
+  const out: Record<string, number> = {};
+  for (const key of keys) {
+    const raw = box[key];
+    if (typeof raw !== "number" || !Number.isFinite(raw)) return null;
+    out[key] = raw;
+  }
+  if (out["width"]! <= 0 || out["height"]! <= 0) return null;
+  return out as unknown as Bbox;
+}
+
+function resolveBbox(stamp: Record<string, unknown>): Bbox | null {
+  return box2dToBbox(stamp["box_2d"]) ?? legacyBbox(stamp["bbox"]);
+}
+
 function toBase64(bytes: Uint8Array) {
   let binary = "";
   const chunk = 8192;
@@ -187,7 +221,7 @@ export const identifyPage = createServerFn({ method: "POST" })
           page_id: page.id,
           position_index: index,
           crop_path: null,
-          bbox: (stamp["bbox"] ?? null) as never,
+          bbox: resolveBbox(stamp) as never,
           country: str(stamp["country"]),
           country_inscription: str(stamp["country_inscription"]),
           year_estimate: yearEstimate === null ? null : Math.round(yearEstimate),
