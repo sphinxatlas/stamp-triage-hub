@@ -358,3 +358,104 @@ export async function saveStamp(
     .eq("id", stampId);
   if (error) throw error;
 }
+
+export const SIGNIFICANCE_OPTIONS = ["key_issue", "notable", "ordinary", "unknown"] as const;
+export const FORGERY_OPTIONS = ["high", "medium", "low", "unknown"] as const;
+
+export type ReviewSet = {
+  id: string;
+  page_id: string;
+  set_name: string;
+  country: string | null;
+  year_from: number | null;
+  year_to: number | null;
+  catalogue_system: string | null;
+  catalogue_range: string | null;
+  item_count: number | null;
+  confidence: number | null;
+  notes: string | null;
+  review_status: string;
+  priority_score: number;
+  priority_reasons: string[] | null;
+  significance: string | null;
+  significance_level: string;
+  forgery_risk: string;
+  variants_to_check: string | null;
+  market_notes: string | null;
+  created_at: string | null;
+  page_label: string;
+  container_label: string;
+};
+
+export async function fetchReviewSets() {
+  const { data, error } = await supabase
+    .from("stamp_sets")
+    .select("*, pages!inner(label, containers!inner(label))")
+    .in("review_status", ["pending", "flagged_expert"])
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+
+  const rows = (data ?? []) as unknown as Array<
+    Record<string, unknown> & { pages: { label: string; containers: { label: string } } }
+  >;
+  return rows.map((row) => {
+    const { pages, ...rest } = row;
+    return {
+      ...(rest as unknown as ReviewSet),
+      page_label: pages.label,
+      container_label: pages.containers.label,
+    } as ReviewSet;
+  });
+}
+
+export type SetEdits = {
+  set_name: string;
+  country: string | null;
+  year_from: number | null;
+  year_to: number | null;
+  catalogue_system: string | null;
+  catalogue_range: string | null;
+  item_count: number | null;
+  notes: string | null;
+  market_notes: string | null;
+};
+
+export async function saveSet(
+  setId: string,
+  edits: SetEdits,
+  reviewStatus?: "confirmed" | "flagged_expert" | "rejected",
+) {
+  const payload: Record<string, unknown> = { ...edits, updated_at: new Date().toISOString() };
+  if (reviewStatus) payload["review_status"] = reviewStatus;
+  const { error } = await supabase
+    .from("stamp_sets")
+    .update(payload as never)
+    .eq("id", setId);
+  if (error) throw error;
+}
+
+export function marketSearchPhrase(record: {
+  country?: string | null;
+  year_estimate?: number | null;
+  year_from?: number | null;
+  issue_name?: string | null;
+  set_name?: string | null;
+  catalogue_system?: string | null;
+  catalogue_number?: string | null;
+  catalogue_range?: string | null;
+}) {
+  const catalogue = [
+    record.catalogue_system,
+    record.catalogue_number ?? record.catalogue_range,
+  ].every(Boolean)
+    ? `${record.catalogue_system} ${record.catalogue_number ?? record.catalogue_range}`
+    : null;
+  return [
+    record.country,
+    record.year_estimate ?? record.year_from,
+    record.issue_name ?? record.set_name,
+    catalogue,
+  ]
+    .filter((part) => part !== null && part !== undefined && String(part).trim() !== "")
+    .join(" ");
+}
