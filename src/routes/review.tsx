@@ -908,16 +908,85 @@ function SetDetail({ record, onRemoved }: { record: ReviewSet; onRemoved: () => 
   );
 }
 
+type EstimateView = {
+  low: number | null;
+  high: number | null;
+  confidence: number | null;
+  basis: string | null;
+  estimatedAt: string | null;
+  catalogueLow?: number | null;
+  catalogueHigh?: number | null;
+  unknown?: string | null;
+};
+
+function euro(value: number | null | undefined) {
+  return value === null || value === undefined ? "?" : `EUR ${value.toLocaleString("en-GB")}`;
+}
+
+function EstimateBlock({ estimate }: { estimate: EstimateView }) {
+  const has = estimate.high !== null || estimate.low !== null;
+  const low = (estimate.confidence ?? 0) < 0.4;
+
+  return (
+    <div
+      className={cn(
+        "space-y-2 rounded-md border p-3",
+        (!has || low) && "bg-muted/40 text-muted-foreground",
+      )}
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <h3 className="text-sm font-semibold">Rough estimate, not a valuation</h3>
+        {has && low ? <Badge variant="secondary">Low confidence guess</Badge> : null}
+      </div>
+
+      {has ? (
+        <>
+          <p className="text-base font-semibold text-foreground">
+            Possible realistic sale: {euro(estimate.low)} to {euro(estimate.high)}
+          </p>
+          {estimate.catalogueLow !== null && estimate.catalogueLow !== undefined ? (
+            <p className="text-sm">
+              Catalogue reference: {euro(estimate.catalogueLow)} to {euro(estimate.catalogueHigh)}
+            </p>
+          ) : null}
+          {estimate.basis ? <p className="text-sm">{estimate.basis}</p> : null}
+          {estimate.confidence !== null ? (
+            <p className="text-sm">Confidence: {Math.round(estimate.confidence * 100)}%</p>
+          ) : null}
+          {estimate.unknown ? (
+            <div>
+              <h4 className="text-sm font-medium">What would change this</h4>
+              <p className="text-sm">{estimate.unknown}</p>
+            </div>
+          ) : null}
+          <p className="text-xs">
+            This number was produced by an AI from a photograph. It has not seen the gum, the
+            perforations or the back of the stamp, and those decide most of the value. Treat it as a
+            rough sort order, not a price. The sold listings below show what copies actually went
+            for.
+          </p>
+        </>
+      ) : (
+        <p className="text-sm">
+          {estimate.basis ?? "No figure given: the AI did not recognise this issue well enough."}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function ResearchBriefBlock({
   kind,
   id,
   brief,
   generatedAt,
+  value,
 }: {
   kind: "stamp" | "set";
   id: string;
   brief: string | null;
   generatedAt: string | null;
+  value: EstimateView;
 }) {
   const queryClient = useQueryClient();
   const generate = useServerFn(researchBrief);
