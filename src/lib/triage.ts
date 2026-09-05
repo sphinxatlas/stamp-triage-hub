@@ -34,6 +34,10 @@ export type Stamp = {
   review_status: string;
   quantity: number;
   confidence: number | null;
+  value_low: number | null;
+  value_high: number | null;
+  value_confidence: number | null;
+  value_basis: string | null;
 };
 
 export function formatDenomination(
