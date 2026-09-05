@@ -309,16 +309,23 @@ function RetryFailed({ errors }: { errors: RunError[] }) {
 }
 
 export function IdentifyRunIndicator() {
-  const { run, active, openPanel } = useIdentifyRun();
+  const { run, active, briefs, openPanel } = useIdentifyRun();
   if (!active || !run) return null;
   return (
     <button
       type="button"
       onClick={openPanel}
-      className="w-full rounded-md bg-primary/10 px-2 py-1 text-left text-xs font-medium text-primary"
+      className="w-full space-y-0.5 rounded-md bg-primary/10 px-2 py-1 text-left text-xs font-medium text-primary"
     >
-      Identifying: {Math.min(run.current_index + 1, run.page_ids.length)} of{" "}
-      {run.page_ids.length}
+      <span className="block">
+        Identifying: {Math.min(run.current_index + 1, run.page_ids.length)} of{" "}
+        {run.page_ids.length}
+      </span>
+      {briefs ? (
+        <span className="block font-normal">
+          Notes {Math.min(briefs.done + 1, briefs.total)} of {briefs.total}
+        </span>
+      ) : null}
     </button>
   );
 }
