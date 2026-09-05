@@ -31,6 +31,7 @@ import {
   ITEM_TYPE_OPTIONS,
   MINT_OPTIONS,
   fetchReviewQueue,
+  formatDenomination,
   saveStamp,
   type ReviewStamp,
   type StampEdits,
