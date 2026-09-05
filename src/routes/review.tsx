@@ -137,6 +137,11 @@ function Review() {
     }
   }, [visible, selectedId]);
 
+  const visibleSets = useMemo(
+    () => (filter === "all" ? sets : sets.filter((item) => item.review_status === filter)),
+    [sets, filter],
+  );
+
   const selected = visible.find((stamp) => stamp.id === selectedId) ?? null;
 
   const selectNext = (removedId: string) => {
@@ -149,7 +154,9 @@ function Review() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold">
-          {visible.length} stamp{visible.length === 1 ? "" : "s"} to review
+          {view === "sets"
+            ? `${visibleSets.length} set${visibleSets.length === 1 ? "" : "s"} to review`
+            : `${visible.length} stamp${visible.length === 1 ? "" : "s"} to review`}
         </h1>
         <div className="flex items-center gap-2">
           <Button
@@ -183,7 +190,9 @@ function Review() {
         </div>
       </div>
 
-      {visible.length === 0 ? (
+      {view === "sets" ? (
+        <SetsPanel sets={visibleSets} />
+      ) : visible.length === 0 ? (
         <p className="rounded-lg border p-6 text-muted-foreground">Nothing left to review</p>
       ) : (
         <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
