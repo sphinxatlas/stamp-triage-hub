@@ -217,7 +217,7 @@ export function IdentifyRunProvider({ children }: { children: ReactNode }) {
       openPanel: () => setPanelOpen(true),
       labelOf,
     }),
-    [run, active, startMutation, cancelMutation, labelOf],
+    [run, active, briefs, startMutation, cancelMutation, labelOf],
   );
 
   return (
