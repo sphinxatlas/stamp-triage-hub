@@ -107,6 +107,26 @@ function EstimateHeader() {
   );
 }
 
+function PriorityCell({ score, reasons }: { score: number; reasons: string[] | null }) {
+  const tier = priorityTier(score);
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="inline-flex items-center gap-2 whitespace-nowrap text-sm">
+            <span
+              className={cn("h-2.5 w-2.5 shrink-0 rounded-full", priorityDotClass(tier))}
+              aria-hidden="true"
+            />
+            {PRIORITY_TIER_LABELS[tier]}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs">{whyThisIsHere(reasons)}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
 function Stamps() {
   const { data } = useSuspenseQuery(stampsQuery);
   const { data: setsData } = useSuspenseQuery(setsQuery);
@@ -119,7 +139,8 @@ function Stamps() {
   const [tier, setTier] = useState(ANY);
   const [significance, setSignificance] = useState(ANY);
   const [onlySets, setOnlySets] = useState(false);
-  const [sort, setSort] = useState<SortKey>("newest");
+  const [sort, setSort] = useState<SortKey>("priority");
+
   const [openStamp, setOpenStamp] = useState<BrowseStamp | null>(null);
   const [openSet, setOpenSet] = useState<ReviewSet | null>(null);
 
