@@ -265,6 +265,13 @@ export function IdentifyRunPanel() {
         ) : null}
       </div>
 
+      {briefs ? (
+        <p className="text-sm text-muted-foreground">
+          Writing research notes: {Math.min(briefs.done + 1, briefs.total)} of {briefs.total} —{" "}
+          {briefs.label}
+        </p>
+      ) : null}
+
       <ul className="max-h-64 space-y-1 overflow-auto text-sm">
         {run.page_ids.map((id, index) => {
           const failure = run.errors.find((item) => item.page_id === id);
