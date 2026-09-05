@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Camera, CheckCircle2, Boxes, Stamp } from "lucide-react";
+import { LayoutDashboard, Camera, CheckCircle2, Boxes, Stamp, Files } from "lucide-react";
 
 import {
   Sidebar,
@@ -15,10 +15,12 @@ import {
 const items = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Capture", url: "/capture", icon: Camera },
+  { title: "Pages", url: "/pages", icon: Files },
   { title: "Review", url: "/review", icon: CheckCircle2 },
   { title: "Containers", url: "/containers", icon: Boxes },
   { title: "Stamps", url: "/stamps", icon: Stamp },
 ] as const;
+
 
 export function AppSidebar() {
   const currentPath = useRouterState({ select: (router) => router.location.pathname });

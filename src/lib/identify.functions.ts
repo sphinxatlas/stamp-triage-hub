@@ -124,7 +124,9 @@ export const identifyPage = createServerFn({ method: "POST" })
       throw new Error("This page has no photo yet. Upload a capture before identifying stamps.");
     }
 
+    await supabaseAdmin.from("stamps").delete().eq("page_id", page.id);
     await supabaseAdmin.from("pages").update({ identify_status: "running" }).eq("id", page.id);
+
 
     const fail = async (rawText: string, message: string) => {
       await supabaseAdmin
