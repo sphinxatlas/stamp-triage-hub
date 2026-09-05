@@ -524,3 +524,54 @@ export function marketSearchPhrase(record: {
     .filter((part) => part !== null && part !== undefined && String(part).trim() !== "")
     .join(" ");
 }
+
+export type TopValueItem = {
+  id: string;
+  kind: "stamp" | "set";
+  label: string;
+  value_low: number | null;
+  value_high: number | null;
+  value_confidence: number | null;
+};
+
+export async function fetchTopValues(): Promise<TopValueItem[]> {
+  const [stamps, sets] = await Promise.all([
+    supabase
+      .from("stamps")
+      .select("id, country, year_estimate, issue_name, denomination, currency, value_low, value_high, value_confidence")
+      .not("value_high", "is", null)
+      .order("value_high", { ascending: false })
+      .limit(10),
+    supabase
+      .from("stamp_sets")
+      .select("id, set_name, country, value_low, value_high, value_confidence")
+      .not("value_high", "is", null)
+      .order("value_high", { ascending: false })
+      .limit(10),
+  ]);
+  if (stamps.error) throw stamps.error;
+  if (sets.error) throw sets.error;
+
+  const items: TopValueItem[] = [
+    ...(stamps.data ?? []).map((row) => ({
+      id: row.id,
+      kind: "stamp" as const,
+      label: [row.country, row.year_estimate, row.issue_name ?? formatDenomination(row.denomination, row.currency)]
+        .filter(Boolean)
+        .join(" · ") || "Unnamed stamp",
+      value_low: row.value_low,
+      value_high: row.value_high,
+      value_confidence: row.value_confidence,
+    })),
+    ...(sets.data ?? []).map((row) => ({
+      id: row.id,
+      kind: "set" as const,
+      label: [row.country, row.set_name].filter(Boolean).join(" · ") || "Unnamed set",
+      value_low: (row as { value_low: number | null }).value_low,
+      value_high: (row as { value_high: number | null }).value_high,
+      value_confidence: (row as { value_confidence: number | null }).value_confidence,
+    })),
+  ];
+
+  return items.sort((a, b) => (b.value_high ?? 0) - (a.value_high ?? 0)).slice(0, 10);
+}
