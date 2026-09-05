@@ -249,48 +249,10 @@ function Pages() {
 
       {run ? (
         <section className="space-y-3 rounded-lg border p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-sm font-medium">
-              {running
-                ? `Page ${runIndex + 1} of ${run.length} — ${run[runIndex]?.label ?? ""}`
-                : `Finished — ${run.filter((item) => item.state === "done").length} succeeded, ${failedItems.length} failed`}
-            </h2>
-            {finished ? (
-              <div className="flex gap-2">
-                {failedItems.length > 0 ? (
-                  <Button
-                    size="sm"
-                    onClick={() => void startRun(failedItems.map((item) => item.id))}
-                  >
-                    Retry failed
-                  </Button>
-                ) : null}
-                <Button size="sm" variant="outline" onClick={() => setRun(null)}>
-                  Dismiss
-                </Button>
-              </div>
-            ) : null}
-          </div>
-          {finished ? (
-            <p className="text-sm text-muted-foreground">
-              {totals.stamps} stamp(s) and {totals.sets} set(s) created.
-            </p>
-          ) : null}
-          <ul className="space-y-1 text-sm">
-            {run.map((item) => (
-              <li key={item.id} className="flex flex-wrap items-center gap-2">
-                <span className="font-medium">{item.label}</span>
-                <Badge variant={item.state === "failed" ? "destructive" : "secondary"}>
-                  {item.state}
-                </Badge>
-                {item.error ? (
-                  <span className="text-muted-foreground">{item.error}</span>
-                ) : null}
-              </li>
-            ))}
-          </ul>
+          <IdentifyRunPanel />
         </section>
       ) : null}
+
 
       <Table>
         <TableHeader>
