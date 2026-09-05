@@ -208,6 +208,7 @@ export function IdentifyRunProvider({ children }: { children: ReactNode }) {
     () => ({
       run,
       active,
+      briefs,
       start: (pageIds: string[]) => {
         if (pageIds.length === 0 || active) return;
         startMutation.mutate(pageIds);
