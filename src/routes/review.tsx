@@ -523,6 +523,15 @@ function StampDetail({
           />
         </Field>
 
+        {priorityTier(stamp.priority_score) === "high" ? (
+          <ResearchBriefBlock
+            kind="stamp"
+            id={stamp.id}
+            brief={stamp.research_brief}
+            generatedAt={stamp.research_brief_generated_at}
+          />
+        ) : null}
+
         <MarketLookup
           record={{
             country: edits.country,
@@ -844,6 +853,15 @@ function SetDetail({ record, onRemoved }: { record: ReviewSet; onRemoved: () => 
             onChange={(event) => set("notes", event.target.value || null)}
           />
         </Field>
+
+        {priorityTier(record.priority_score) === "high" ? (
+          <ResearchBriefBlock
+            kind="set"
+            id={record.id}
+            brief={record.research_brief}
+            generatedAt={record.research_brief_generated_at}
+          />
+        ) : null}
 
         <MarketLookup
           record={{
