@@ -28,12 +28,24 @@ export type Stamp = {
   country: string | null;
   issue_name: string | null;
   denomination: string | null;
+  currency: string | null;
   year_estimate: number | null;
   item_type: string;
   review_status: string;
   quantity: number;
   confidence: number | null;
 };
+
+export function formatDenomination(
+  denomination: string | null | undefined,
+  currency: string | null | undefined,
+) {
+  const value = denomination?.trim();
+  if (!value) return "—";
+  const unit = currency?.trim();
+  if (!unit) return value;
+  return value.toLowerCase().includes(unit.toLowerCase()) ? value : `${value} ${unit}`;
+}
 
 function pad(n: number) {
   return String(n).padStart(2, "0");

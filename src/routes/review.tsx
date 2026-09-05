@@ -31,6 +31,7 @@ import {
   ITEM_TYPE_OPTIONS,
   MINT_OPTIONS,
   fetchReviewQueue,
+  formatDenomination,
   saveStamp,
   type ReviewStamp,
   type StampEdits,
@@ -165,7 +166,7 @@ function Review() {
                   </p>
                   <p className="truncate text-sm font-medium">{stamp.country ?? "Unknown"}</p>
                   <p className="truncate text-xs text-muted-foreground">
-                    {stamp.denomination ?? "—"}
+                    {formatDenomination(stamp.denomination, stamp.currency)}
                   </p>
                   <Badge variant="secondary">{stamp.review_status}</Badge>
                 </div>
@@ -248,6 +249,9 @@ function StampDetail({
           className="h-56 w-48"
         />
         <div className="space-y-2">
+          <h2 className="text-lg font-semibold">
+            {stamp.country ?? "Unknown"} · {formatDenomination(stamp.denomination, stamp.currency)}
+          </h2>
           <p className="text-sm text-muted-foreground">
             {stamp.container_label} · {stamp.page_label}
           </p>
