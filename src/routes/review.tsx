@@ -663,14 +663,36 @@ function SetsPanel({
             <p className="truncate text-xs text-muted-foreground">
               {[item.country, item.year_from].filter(Boolean).join(" · ") || "—"}
             </p>
+            {item.members.length > 0 ? (
+              <div className="flex items-center gap-1">
+                {item.members.slice(0, 4).map((member) => (
+                  <StampCrop
+                    key={member.id}
+                    photoUrl={member.photo_path ? photoUrls[member.photo_path] : undefined}
+                    bbox={member.bbox}
+                    label={item.set_name}
+                    className="h-12 w-10 shrink-0"
+                  />
+                ))}
+                {item.member_count > 4 ? (
+                  <span className="text-xs text-muted-foreground">
+                    +{item.member_count - 4} more
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
             <div className="flex flex-wrap gap-1">
               <Badge variant="secondary">{item.review_status}</Badge>
+              <Badge className={priorityTierBadgeClass(priorityTier(item.priority_score))}>
+                {PRIORITY_TIER_LABELS[priorityTier(item.priority_score)]}
+              </Badge>
               {item.significance_level === "key_issue" || item.significance_level === "notable" ? (
                 <Badge className={SignificanceBadgeClass(item.significance_level)}>
                   {SIGNIFICANCE_LABELS[item.significance_level]}
                 </Badge>
               ) : null}
             </div>
+            <p className="text-xs text-muted-foreground">{whyThisIsHere(item.priority_reasons)}</p>
           </button>
         ))}
       </div>
