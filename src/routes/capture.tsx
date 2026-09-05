@@ -60,7 +60,23 @@ function Capture() {
   const [pageId, setPageId] = useState("");
   const [captureType, setCaptureType] = useState("album_page");
   const [file, setFile] = useState<File | null>(null);
-  const [result, setResult] = useState<{ label: string; url: string } | null>(null);
+  const [result, setResult] = useState<{ label: string; url: string; pageId: string } | null>(null);
+  const [detected, setDetected] = useState<Record<string, unknown>[] | null>(null);
+  const identifyFn = useServerFn(identifyPage);
+
+  const identify = useMutation({
+    mutationFn: async (targetPageId: string) => identifyFn({ data: { page_id: targetPageId } }),
+    onSuccess: (data) => {
+      setDetected(data.stamps);
+      toast.success(
+        data.stamps.length ? `Found ${data.stamps.length} stamp(s)` : "No stamps were detected",
+      );
+      queryClient.invalidateQueries({ queryKey: ["pages"] });
+      queryClient.invalidateQueries({ queryKey: ["stamps"] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
 
   const containerPages = pages.filter((page) => page.container_id === containerId);
 
