@@ -182,6 +182,9 @@ export async function fetchStampsForPage(pageId: string) {
 export async function deleteStampsForPage(pageId: string) {
   const { error } = await supabase.from("stamps").delete().eq("page_id", pageId);
   if (error) throw error;
+  const { error: setError } = await supabase.from("stamp_sets").delete().eq("page_id", pageId);
+  if (setError) throw setError;
+  if (error) throw error;
   const { error: pageError } = await supabase
     .from("pages")
     .update({ identify_status: "pending", raw_model_output: null, page_notes: null })
@@ -192,6 +195,8 @@ export async function deleteStampsForPage(pageId: string) {
 export async function deletePageCompletely(page: { id: string; photo_path: string | null }) {
   const { error: stampError } = await supabase.from("stamps").delete().eq("page_id", page.id);
   if (stampError) throw stampError;
+  const { error: setError } = await supabase.from("stamp_sets").delete().eq("page_id", page.id);
+  if (setError) throw setError;
   const { error } = await supabase.from("pages").delete().eq("id", page.id);
   if (error) throw error;
   if (page.photo_path) {
@@ -227,6 +232,13 @@ export type ReviewStamp = {
   confidence: number | null;
   quantity: number;
   notes: string | null;
+  significance: string | null;
+  significance_level: string;
+  forgery_risk: string;
+  variants_to_check: string | null;
+  market_notes: string | null;
+  priority_score: number;
+  priority_reasons: string[] | null;
   review_status: string;
   created_at: string | null;
   page_label: string;
@@ -328,6 +340,7 @@ export type StampEdits = {
   faults: string[];
   quantity: number;
   notes: string | null;
+  market_notes: string | null;
 };
 
 export async function saveStamp(
