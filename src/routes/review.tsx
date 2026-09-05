@@ -817,13 +817,13 @@ function SetDetail({ record, onRemoved }: { record: ReviewSet; onRemoved: () => 
         </Field>
 
         <MarketLookup
-          initialPhrase={marketSearchPhrase({
+          record={{
             country: edits.country,
-            year_from: edits.year_from,
-            set_name: edits.set_name,
+            year: edits.year_from,
+            issue_name: edits.set_name,
             catalogue_system: edits.catalogue_system,
-            catalogue_range: edits.catalogue_range,
-          })}
+            catalogue_reference: edits.catalogue_range,
+          }}
         />
 
         <Field label="Market notes">
