@@ -709,3 +709,39 @@ export async function recalculatePriorities() {
 
   return { stampsUpdated, setsUpdated };
 }
+
+export type BriefTarget = { kind: "stamp" | "set"; id: string; label: string };
+
+/** Stamps and sets on a page that still have no research brief. */
+export async function fetchBriefTargets(pageId: string): Promise<BriefTarget[]> {
+  const [stamps, sets] = await Promise.all([
+    supabase
+      .from("stamps")
+      .select("id, country, denomination, research_brief")
+      .eq("page_id", pageId)
+      .order("position_index", { ascending: true }),
+    supabase
+      .from("stamp_sets")
+      .select("id, set_name, research_brief")
+      .eq("page_id", pageId),
+  ]);
+  if (stamps.error) throw stamps.error;
+  if (sets.error) throw sets.error;
+
+  const targets: BriefTarget[] = [];
+  for (const set of sets.data ?? []) {
+    if (!set.research_brief) {
+      targets.push({ kind: "set", id: set.id, label: set.set_name ?? "Set" });
+    }
+  }
+  for (const stamp of stamps.data ?? []) {
+    if (!stamp.research_brief) {
+      targets.push({
+        kind: "stamp",
+        id: stamp.id,
+        label: [stamp.country, stamp.denomination].filter(Boolean).join(" ") || "Stamp",
+      });
+    }
+  }
+  return targets;
+}
