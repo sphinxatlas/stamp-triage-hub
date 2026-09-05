@@ -186,3 +186,148 @@ export async function deletePageCompletely(page: { id: string; photo_path: strin
     await supabase.storage.from("captures").remove([page.photo_path]);
   }
 }
+
+export type Bbox = { x: number; y: number; width: number; height: number };
+
+export type ReviewStamp = {
+  id: string;
+  page_id: string;
+  bbox: unknown;
+  country: string | null;
+  country_inscription: string | null;
+  year_estimate: number | null;
+  year_confidence: number | null;
+  denomination: string | null;
+  currency: string | null;
+  issue_name: string | null;
+  catalogue_system: string | null;
+  catalogue_number: string | null;
+  catalogue_confidence: number | null;
+  item_type: string;
+  format: string;
+  mint_or_used: string | null;
+  hinged_guess: string | null;
+  gum_state: string;
+  perforation: string | null;
+  watermark: string | null;
+  faults: string[] | null;
+  condition_notes: string | null;
+  confidence: number | null;
+  quantity: number;
+  notes: string | null;
+  review_status: string;
+  created_at: string | null;
+  page_label: string;
+  page_photo_path: string | null;
+  container_label: string;
+};
+
+export function parseBbox(value: unknown): Bbox | null {
+  if (!value || typeof value !== "object") return null;
+  const box = value as Record<string, unknown>;
+  const keys = ["x", "y", "width", "height"] as const;
+  const out: Record<string, number> = {};
+  for (const key of keys) {
+    const raw = box[key];
+    if (typeof raw !== "number" || !Number.isFinite(raw)) return null;
+    out[key] = raw;
+  }
+  if (out["width"]! <= 0 || out["height"]! <= 0) return null;
+  return out as unknown as Bbox;
+}
+
+export async function fetchReviewQueue() {
+  const { data, error } = await supabase
+    .from("stamps")
+    .select("*, pages!inner(label, photo_path, containers!inner(label))")
+    .in("review_status", ["pending", "flagged_expert"])
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+
+  const rows = (data ?? []) as unknown as Array<
+    Record<string, unknown> & {
+      pages: { label: string; photo_path: string | null; containers: { label: string } };
+    }
+  >;
+
+  const stamps = rows.map((row) => {
+    const { pages, ...rest } = row;
+    return {
+      ...(rest as unknown as ReviewStamp),
+      page_label: pages.label,
+      page_photo_path: pages.photo_path,
+      container_label: pages.containers.label,
+    } as ReviewStamp;
+  });
+
+  const paths = Array.from(
+    new Set(stamps.map((stamp) => stamp.page_photo_path).filter((p): p is string => !!p)),
+  );
+  const photoUrls: Record<string, string> = {};
+  if (paths.length > 0) {
+    const signed = await supabase.storage.from("captures").createSignedUrls(paths, 3600);
+    if (signed.error) throw signed.error;
+    for (const item of signed.data ?? []) {
+      if (item.path && item.signedUrl) photoUrls[item.path] = item.signedUrl;
+    }
+  }
+
+  return { stamps, photoUrls };
+}
+
+export const FAULT_OPTIONS = [
+  "thin",
+  "crease",
+  "tear",
+  "short_perfs",
+  "toning",
+  "foxing",
+  "hinge_remnant",
+  "fading",
+] as const;
+
+export const ITEM_TYPE_OPTIONS = [
+  "postage",
+  "revenue",
+  "cinderella",
+  "label",
+  "unknown",
+] as const;
+
+export const FORMAT_OPTIONS = ["single", "block", "sheet", "on_cover", "se_tenant"] as const;
+export const MINT_OPTIONS = ["mint", "used", "unknown"] as const;
+export const GUM_OPTIONS = ["never_hinged", "hinged", "no_gum", "regummed", "unknown"] as const;
+
+export type StampEdits = {
+  country: string | null;
+  country_inscription: string | null;
+  year_estimate: number | null;
+  denomination: string | null;
+  currency: string | null;
+  issue_name: string | null;
+  catalogue_system: string | null;
+  catalogue_number: string | null;
+  item_type: string;
+  format: string;
+  mint_or_used: string | null;
+  gum_state: string;
+  perforation: string | null;
+  watermark: string | null;
+  faults: string[];
+  quantity: number;
+  notes: string | null;
+};
+
+export async function saveStamp(
+  stampId: string,
+  edits: StampEdits,
+  reviewStatus?: "confirmed" | "flagged_expert" | "rejected",
+) {
+  const payload: Record<string, unknown> = {
+    ...edits,
+    updated_at: new Date().toISOString(),
+  };
+  if (reviewStatus) payload["review_status"] = reviewStatus;
+  const { error } = await supabase.from("stamps").update(payload).eq("id", stampId);
+  if (error) throw error;
+}
