@@ -48,6 +48,7 @@ export function buildPhrases(record: MarketRecord) {
     catalogue: tidy([record.country, record.catalogue_system, record.catalogue_reference]),
     descriptive: tidy([record.country, record.year, firstWords(record.issue_name, 3)]),
     minimal: tidy([record.country, record.year, record.denomination]),
+    research: tidy([record.country, record.year, firstWords(record.issue_name, 3), "stamp"]),
   };
 }
 
@@ -55,6 +56,7 @@ const TABS = [
   { key: "catalogue", label: "Catalogue" },
   { key: "descriptive", label: "Descriptive" },
   { key: "minimal", label: "Minimal" },
+  { key: "research", label: "Research" },
 ] as const;
 
 export function MarketLookup({ record }: { record: MarketRecord }) {
@@ -77,7 +79,12 @@ export function MarketLookup({ record }: { record: MarketRecord }) {
       label: "eBay Netherlands sold",
       href: `https://www.ebay.nl/sch/i.html?_nkw=${q}&LH_Sold=1&LH_Complete=1`,
     },
+    {
+      label: "Google",
+      href: `https://www.google.com/search?q=${q}`,
+    },
   ];
+
 
   const copy = async () => {
     try {
