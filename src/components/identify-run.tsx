@@ -57,7 +57,9 @@ export function useIdentifyRun() {
 export function IdentifyRunProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const identifyFn = useServerFn(identifyPage);
+  const briefFn = useServerFn(researchBrief);
   const [panelOpen, setPanelOpen] = useState(false);
+  const [briefs, setBriefs] = useState<BriefProgress>(null);
   const workingRef = useRef<string | null>(null);
 
   const { data: run = null } = useQuery({
