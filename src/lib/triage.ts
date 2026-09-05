@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { computePriority, computeSetPriority } from "@/lib/priority";
 
 export const CONTAINER_TYPES = ["album", "box", "loose_sheet", "review_book"] as const;
 
@@ -634,4 +635,77 @@ export async function fetchBrowseStamps() {
   }
 
   return { stamps, photoUrls };
+}
+
+export async function recalculatePriorities() {
+  const [stampsResult, setsResult] = await Promise.all([
+    supabase
+      .from("stamps")
+      .select(
+        "id, set_id, significance_level, forgery_risk, variants_to_check, confidence, year_estimate, format, country, denomination, currency, item_type, is_overprinted, priority_score, priority_reasons",
+      ),
+    supabase.from("stamp_sets").select("id, item_count"),
+  ]);
+  if (stampsResult.error) throw stampsResult.error;
+  if (setsResult.error) throw setsResult.error;
+
+  const stamps = (stampsResult.data ?? []) as Array<Record<string, unknown>>;
+  const sets = (setsResult.data ?? []) as Array<Record<string, unknown>>;
+
+  const computed = new Map<string, { score: number; reasons: string[]; set_id: string | null }>();
+  for (const row of stamps) {
+    const priority = computePriority({
+      significance_level: row["significance_level"] as string | null,
+      forgery_risk: row["forgery_risk"] as string | null,
+      variants_to_check: row["variants_to_check"] as string | null,
+      confidence: row["confidence"] === null ? null : Number(row["confidence"]),
+      year_estimate: row["year_estimate"] as number | null,
+      format: row["format"] as string | null,
+      country: row["country"] as string | null,
+      denomination: row["denomination"] as string | null,
+      currency: row["currency"] as string | null,
+      item_type: row["item_type"] as string | null,
+      is_overprinted: row["is_overprinted"] === true,
+    });
+    computed.set(String(row["id"]), {
+      ...priority,
+      set_id: row["set_id"] ? String(row["set_id"]) : null,
+    });
+  }
+
+  let setsUpdated = 0;
+  for (const set of sets) {
+    const setId = String(set["id"]);
+    const members = [...computed.entries()].filter(([, value]) => value.set_id === setId);
+    const expected = set["item_count"] === null ? null : Number(set["item_count"]);
+    const present = members.length;
+    const isComplete = expected !== null && expected > 0 ? present >= expected : null;
+    const priority = computeSetPriority({
+      members: members.map(([, value]) => ({ score: value.score, reasons: value.reasons })),
+      is_complete: isComplete,
+      present_count: present,
+      expected_count: expected,
+    });
+    const { error } = await supabase
+      .from("stamp_sets")
+      .update({ priority_score: priority.score, priority_reasons: priority.reasons })
+      .eq("id", setId);
+    if (error) throw error;
+    setsUpdated += 1;
+    for (const [memberId, value] of members) {
+      computed.set(memberId, { ...value, score: priority.score, reasons: priority.reasons });
+    }
+  }
+
+  let stampsUpdated = 0;
+  for (const [id, value] of computed) {
+    const { error } = await supabase
+      .from("stamps")
+      .update({ priority_score: value.score, priority_reasons: value.reasons })
+      .eq("id", id);
+    if (error) throw error;
+    stampsUpdated += 1;
+  }
+
+  return { stampsUpdated, setsUpdated };
 }
