@@ -3,6 +3,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import {
+  MarketLookup,
+  SIGNIFICANCE_LABELS,
+  SignificanceBadgeClass,
+} from "@/components/market-lookup";
 import { PageWithBox, StampCrop } from "@/components/stamp-crop";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,14 +36,20 @@ import {
   ITEM_TYPE_OPTIONS,
   MINT_OPTIONS,
   fetchReviewQueue,
+  fetchReviewSets,
   formatDenomination,
+  marketSearchPhrase,
+  saveSet,
   saveStamp,
+  type ReviewSet,
   type ReviewStamp,
+  type SetEdits,
   type StampEdits,
 } from "@/lib/triage";
 import { cn } from "@/lib/utils";
 
 const queueQuery = queryOptions({ queryKey: ["review-queue"], queryFn: fetchReviewQueue });
+const setsQuery = queryOptions({ queryKey: ["review-sets"], queryFn: fetchReviewSets });
 
 export const Route = createFileRoute("/review")({
   ssr: false,
@@ -83,11 +94,28 @@ function toEdits(stamp: ReviewStamp): StampEdits {
     faults: stamp.faults ?? [],
     quantity: stamp.quantity,
     notes: stamp.notes,
+    market_notes: stamp.market_notes,
+  };
+}
+
+function toSetEdits(record: ReviewSet): SetEdits {
+  return {
+    set_name: record.set_name,
+    country: record.country,
+    year_from: record.year_from,
+    year_to: record.year_to,
+    catalogue_system: record.catalogue_system,
+    catalogue_range: record.catalogue_range,
+    item_count: record.item_count,
+    notes: record.notes,
+    market_notes: record.market_notes,
   };
 }
 
 function Review() {
   const { data } = useSuspenseQuery(queueQuery);
+  const { data: sets } = useSuspenseQuery(setsQuery);
+  const [view, setView] = useState<"stamps" | "sets">("stamps");
   const [filter, setFilter] = useState<string>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -123,6 +151,22 @@ function Review() {
         <h1 className="text-2xl font-semibold">
           {visible.length} stamp{visible.length === 1 ? "" : "s"} to review
         </h1>
+        <div className="flex items-center gap-2">
+          <Button
+            variant={view === "stamps" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setView("stamps")}
+          >
+            Stamps
+          </Button>
+          <Button
+            variant={view === "sets" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setView("sets")}
+          >
+            Sets ({sets.length})
+          </Button>
+        </div>
         <div className="w-56">
           <Select value={filter} onValueChange={setFilter}>
             <SelectTrigger aria-label="Status filter">
@@ -168,7 +212,15 @@ function Review() {
                   <p className="truncate text-xs text-muted-foreground">
                     {formatDenomination(stamp.denomination, stamp.currency)}
                   </p>
-                  <Badge variant="secondary">{stamp.review_status}</Badge>
+                  <div className="flex flex-wrap gap-1">
+                    <Badge variant="secondary">{stamp.review_status}</Badge>
+                    {stamp.significance_level === "key_issue" ||
+                    stamp.significance_level === "notable" ? (
+                      <Badge className={SignificanceBadgeClass(stamp.significance_level)}>
+                        {SIGNIFICANCE_LABELS[stamp.significance_level]}
+                      </Badge>
+                    ) : null}
+                  </div>
                 </div>
               </button>
             ))}
@@ -292,6 +344,17 @@ function StampDetail({
           <Reported label="Catalogue confidence" value={confidence(stamp.catalogue_confidence)} />
           <Reported label="Reasoning" value={stamp.notes} />
         </dl>
+        <div className="space-y-2 border-t pt-3">
+          <Badge className={SignificanceBadgeClass(stamp.significance_level)}>
+            {SIGNIFICANCE_LABELS[stamp.significance_level] ?? stamp.significance_level}
+          </Badge>
+          <p className="text-sm">{stamp.significance ?? "No note on how this issue is regarded."}</p>
+          <h3 className="text-xs font-semibold">What to have an expert check</h3>
+          <dl className="grid gap-2 text-sm sm:grid-cols-2">
+            <Reported label="Forgery risk" value={stamp.forgery_risk} />
+            <Reported label="Variants to check" value={stamp.variants_to_check} />
+          </dl>
+        </div>
         <p className="text-xs text-muted-foreground">These are unverified machine guesses.</p>
       </section>
 
@@ -434,6 +497,24 @@ function StampDetail({
           <Textarea
             value={edits.notes ?? ""}
             onChange={(event) => set("notes", event.target.value || null)}
+          />
+        </Field>
+
+        <MarketLookup
+          initialPhrase={marketSearchPhrase({
+            country: edits.country,
+            year_estimate: edits.year_estimate,
+            issue_name: edits.issue_name,
+            catalogue_system: edits.catalogue_system,
+            catalogue_number: edits.catalogue_number,
+          })}
+        />
+
+        <Field label="Market notes">
+          <Textarea
+            placeholder="Paste what you found and what it sold for"
+            value={edits.market_notes ?? ""}
+            onChange={(event) => set("market_notes", event.target.value || null)}
           />
         </Field>
       </section>
