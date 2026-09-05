@@ -208,6 +208,24 @@ function Stamps() {
     return sorted;
   }, [setsData.sets, term, container, country, status, tier, significance, sort]);
 
+  const highTargets = useMemo<EstimateTarget[]>(() => {
+    const needsEstimate = (low: number | null, high: number | null, score: number) =>
+      priorityTier(score) === "high" && low === null && high === null;
+    const stampTargets = data.stamps
+      .filter((stamp) => needsEstimate(stamp.value_low, stamp.value_high, stamp.priority_score))
+      .map((stamp) => ({
+        kind: "stamp" as const,
+        id: stamp.id,
+        label: `${stamp.country ?? "Unknown"} ${stamp.issue_name ?? ""}`.trim(),
+      }));
+    const setTargets = setsData.sets
+      .filter((item) => needsEstimate(item.value_low, item.value_high, item.priority_score))
+      .map((item) => ({ kind: "set" as const, id: item.id, label: item.set_name }));
+    return [...stampTargets, ...setTargets];
+  }, [data.stamps, setsData.sets]);
+
+
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
