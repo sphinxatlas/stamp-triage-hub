@@ -266,8 +266,6 @@ export const identifyPage = createServerFn({ method: "POST" })
           gum_state: "unknown",
           format,
           is_overprinted: isOverprinted,
-          priority: priority as { score: number; reasons: string[] },
-
           faults: Array.isArray(stamp["faults_suggested"])
             ? (stamp["faults_suggested"] as unknown[]).filter(
                 (fault): fault is string => typeof fault === "string",
@@ -284,9 +282,73 @@ export const identifyPage = createServerFn({ method: "POST" })
           forgery_risk: forgeryRisk,
           variants_to_check: variants,
           priority_score: priority.score,
-          priority_reasons: priority.reasons,
+          priority_reasons: priority.reasons as string[],
         };
       });
+
+      // Sets take the highest score among their members, then every member inherits it.
+      for (const rawSet of detectedSets) {
+        const item = (rawSet ?? {}) as Record<string, unknown>;
+        const name = str(item["set_name"]);
+        if (!name) continue;
+        const confidence = num(item["confidence"]);
+        const significanceLevel = pick(item["significance_level"], SIGNIFICANCE_LEVELS, "unknown");
+        const forgeryRisk = pick(item["forgery_risk"], FORGERY_RISKS, "unknown");
+        const variants = str(item["variants_to_check"]);
+        const yearFrom = num(item["year_from"]);
+        const expectedCount = num(item["item_count"]);
+
+        const memberIndexes = (Array.isArray(item["member_indexes"]) ? item["member_indexes"] : [])
+          .filter((value): value is number => typeof value === "number" && Number.isInteger(value))
+          .filter((index) => index >= 0 && index < rows.length);
+        const memberRows = memberIndexes.map((index) => rows[index]!);
+        const presentCount = memberRows.length;
+        const isComplete =
+          expectedCount !== null && expectedCount > 0 ? presentCount >= expectedCount : null;
+
+        const priority = computeSetPriority({
+          members: memberRows.map((row) => ({
+            score: row.priority_score,
+            reasons: row.priority_reasons,
+          })),
+          is_complete: isComplete,
+          present_count: presentCount,
+          expected_count: expectedCount === null ? null : Math.round(expectedCount),
+        });
+
+        const { data: insertedSet, error: setError } = await supabaseAdmin
+          .from("stamp_sets")
+          .insert({
+            page_id: page.id,
+            set_name: name,
+            country: str(item["country"]),
+            year_from: yearFrom === null ? null : Math.round(yearFrom),
+            year_to: num(item["year_to"]) === null ? null : Math.round(num(item["year_to"])!),
+            catalogue_system: str(item["catalogue_system"]),
+            catalogue_range: str(item["catalogue_range"]),
+            item_count: expectedCount === null ? null : Math.round(expectedCount),
+            confidence,
+            notes: str(item["reasoning"]),
+            review_status: item["needs_review"] === true ? "flagged_expert" : "pending",
+            priority_score: priority.score,
+            priority_reasons: priority.reasons,
+            significance: str(item["significance"]),
+            significance_level: significanceLevel,
+            forgery_risk: forgeryRisk,
+            variants_to_check: variants,
+          } as never)
+          .select("id")
+          .single();
+        if (setError) throw new Error(setError.message);
+
+        const setId = String((insertedSet as { id: unknown }).id);
+        for (const row of memberRows) {
+          row.set_id = setId;
+          row.priority_score = priority.score;
+          row.priority_reasons = priority.reasons;
+        }
+      }
+
 
       let inserted: DetectedStamp[] = [];
       if (rows.length > 0) {
