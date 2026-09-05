@@ -18,12 +18,9 @@ export function StampCrop({
     ? (() => {
         const x = Math.max(0, raw.x - PAD);
         const y = Math.max(0, raw.y - PAD);
-        return {
-          x,
-          y,
-          width: Math.min(1 - x, raw.width + PAD * 2 - (raw.x - x <= 0 ? PAD - raw.x : 0)),
-          height: Math.min(1 - y, raw.height + PAD * 2 - (raw.y - y <= 0 ? PAD - raw.y : 0)),
-        };
+        const right = Math.min(1, raw.x + raw.width + PAD);
+        const bottom = Math.min(1, raw.y + raw.height + PAD);
+        return { x, y, width: right - x, height: bottom - y };
       })()
     : null;
 
