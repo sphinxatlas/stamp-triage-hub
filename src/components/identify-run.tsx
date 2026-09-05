@@ -117,9 +117,11 @@ export function IdentifyRunProvider({ children }: { children: ReactNode }) {
         const pageId = run.page_ids[index]!;
         await patchRun(run.id, { current_index: index });
         queryClient.invalidateQueries({ queryKey: ["identify-run"] });
+        let identified = true;
         try {
           await identifyFn({ data: { page_id: pageId } });
         } catch (error) {
+          identified = false;
           errors.push({
             page_id: pageId,
             label: labelOf(pageId),
@@ -129,6 +131,29 @@ export function IdentifyRunProvider({ children }: { children: ReactNode }) {
         }
         // Results are written per page, so finished pages are reviewable straight away.
         refreshAll();
+
+        // Every new stamp and set gets its research brief and value estimate here,
+        // one at a time, so the review queue is already filled in.
+        if (identified) {
+          try {
+            const targets = await fetchBriefTargets(pageId);
+            for (let i = 0; i < targets.length; i += 1) {
+              const target = targets[i]!;
+              const runStatus = await fetchRunStatus(run.id).catch(() => "cancelled");
+              if (runStatus !== "running") break;
+              setBriefs({ label: target.label, done: i, total: targets.length });
+              try {
+                await briefFn({ data: { kind: target.kind, id: target.id } });
+              } catch {
+                // A failed brief must not stop identification of the remaining pages.
+              }
+              refreshAll();
+            }
+          } catch {
+            // Ignore: briefs are an extra, identification results are already saved.
+          }
+          setBriefs(null);
+        }
       }
 
       const finalStatus = await fetchRunStatus(run.id).catch(() => "cancelled");
