@@ -1,12 +1,30 @@
 import { queryOptions, useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { ConfirmButton } from "@/components/confirm-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Collapsible,
   CollapsibleContent,
@@ -38,6 +56,19 @@ const countsQuery = queryOptions({
   queryKey: ["page-stamp-counts"],
   queryFn: fetchPageStampCounts,
 });
+
+type RunState = "pending" | "running" | "done" | "failed";
+type RunItem = { id: string; label: string; state: RunState; error?: string };
+
+async function countSetsForPage(pageId: string) {
+  const { count, error } = await supabase
+    .from("stamp_sets")
+    .select("id", { count: "exact", head: true })
+    .eq("page_id", pageId);
+  if (error) return 0;
+  return count ?? 0;
+}
+
 
 async function fetchThumbnails(paths: string[]) {
   if (paths.length === 0) return {} as Record<string, string>;
@@ -77,6 +108,16 @@ function Pages() {
   const { data: containers } = useSuspenseQuery(containersQuery);
   const { data: counts } = useSuspenseQuery(countsQuery);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [checked, setChecked] = useState<string[]>([]);
+  const [containerFilter, setContainerFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [run, setRun] = useState<RunItem[] | null>(null);
+  const [runIndex, setRunIndex] = useState(0);
+  const [running, setRunning] = useState(false);
+  const [totals, setTotals] = useState({ stamps: 0, sets: 0 });
+
+  const identifyFn = useServerFn(identifyPage);
 
   const paths = pages.map((page) => page.photo_path).filter((path): path is string => !!path);
   const { data: thumbs } = useSuspenseQuery(
@@ -89,19 +130,237 @@ function Pages() {
   const containerLabel = (id: string) =>
     containers.find((container) => container.id === id)?.label ?? "—";
 
-  const sorted = pages.slice().sort((a, b) => {
-    const left = a.captured_at ? Date.parse(a.captured_at) : 0;
-    const right = b.captured_at ? Date.parse(b.captured_at) : 0;
-    return right - left;
-  });
+  const sorted = useMemo(
+    () =>
+      pages.slice().sort((a, b) => {
+        const left = a.captured_at ? Date.parse(a.captured_at) : 0;
+        const right = b.captured_at ? Date.parse(b.captured_at) : 0;
+        return right - left;
+      }),
+    [pages],
+  );
+
+  const visible = sorted.filter(
+    (page) =>
+      (containerFilter === "all" || page.container_id === containerFilter) &&
+      (statusFilter === "all" || page.identify_status === statusFilter),
+  );
+
+  const refreshAll = useCallback(() => {
+    for (const key of [
+      "pages",
+      "page-stamp-counts",
+      "page-detail",
+      "page-stamps",
+      "stamps",
+      "review-stamps",
+      "review-sets",
+      "stamp-sets",
+      "dashboard",
+    ]) {
+      queryClient.invalidateQueries({ queryKey: [key] });
+    }
+  }, [queryClient]);
+
+  useEffect(() => {
+    if (!running) return;
+    const handler = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [running]);
+
+  const labelOf = (id: string) => pages.find((page) => page.id === id)?.label ?? id;
+
+  const startRun = async (ids: string[]) => {
+    if (ids.length === 0) return;
+    setRunning(true);
+    setTotals({ stamps: 0, sets: 0 });
+    let items: RunItem[] = ids.map((id) => ({ id, label: labelOf(id), state: "pending" }));
+    setRun(items);
+    setRunIndex(0);
+    let stampTotal = 0;
+    let setTotal = 0;
+
+    for (let index = 0; index < ids.length; index += 1) {
+      const id = ids[index]!;
+      setRunIndex(index);
+      items = items.map((item) => (item.id === id ? { ...item, state: "running" } : item));
+      setRun(items);
+      try {
+        const result = await identifyFn({ data: { page_id: id } });
+        stampTotal += result.stamps.length;
+        setTotal += await countSetsForPage(id);
+        items = items.map((item) => (item.id === id ? { ...item, state: "done" } : item));
+      } catch (error) {
+        items = items.map((item) =>
+          item.id === id
+            ? { ...item, state: "failed", error: (error as Error).message ?? "Failed" }
+            : item,
+        );
+      }
+      setRun(items);
+      setTotals({ stamps: stampTotal, sets: setTotal });
+    }
+
+    setRunning(false);
+    const failed = items.filter((item) => item.state === "failed").length;
+    if (failed === 0) toast.success(`Identified ${items.length} page(s)`);
+    else toast.error(`${failed} page(s) failed`);
+    refreshAll();
+  };
+
+  const finished = run && !running;
+  const failedItems = (run ?? []).filter((item) => item.state === "failed");
 
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Pages</h1>
 
+      <div className="flex flex-wrap items-center gap-3">
+        <Select value={containerFilter} onValueChange={setContainerFilter}>
+          <SelectTrigger className="w-52">
+            <SelectValue placeholder="Container" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All containers</SelectItem>
+            {containers.map((container) => (
+              <SelectItem key={container.id} value={container.id}>
+                {container.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-44">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All</SelectItem>
+            <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="done">Done</SelectItem>
+            <SelectItem value="failed">Failed</SelectItem>
+          </SelectContent>
+        </Select>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() =>
+            setChecked(
+              sorted
+                .filter(
+                  (page) =>
+                    page.identify_status === "done" || page.identify_status === "failed",
+                )
+                .map((page) => page.id),
+            )
+          }
+        >
+          Select all identified
+        </Button>
+      </div>
+
+      {checked.length > 0 ? (
+        <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-background p-3 shadow-sm">
+          <span className="text-sm font-medium">{checked.length} pages selected</span>
+          <div className="flex gap-2">
+            <Button size="sm" disabled={running} onClick={() => setDialogOpen(true)}>
+              Re-run identification
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={running}
+              onClick={() => setChecked([])}
+            >
+              Clear selection
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      <AlertDialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Re-run identification?</AlertDialogTitle>
+            <AlertDialogDescription>
+              All existing stamp records, sets, edits and confirmations for these pages will be
+              deleted and replaced. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <p className="max-h-40 overflow-auto text-sm">
+            {checked.map((id) => labelOf(id)).join(", ")}
+          </p>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void startRun(checked)}>Confirm</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {run ? (
+        <section className="space-y-3 rounded-lg border p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-medium">
+              {running
+                ? `Page ${runIndex + 1} of ${run.length} — ${run[runIndex]?.label ?? ""}`
+                : `Finished — ${run.filter((item) => item.state === "done").length} succeeded, ${failedItems.length} failed`}
+            </h2>
+            {finished ? (
+              <div className="flex gap-2">
+                {failedItems.length > 0 ? (
+                  <Button
+                    size="sm"
+                    onClick={() => void startRun(failedItems.map((item) => item.id))}
+                  >
+                    Retry failed
+                  </Button>
+                ) : null}
+                <Button size="sm" variant="outline" onClick={() => setRun(null)}>
+                  Dismiss
+                </Button>
+              </div>
+            ) : null}
+          </div>
+          {finished ? (
+            <p className="text-sm text-muted-foreground">
+              {totals.stamps} stamp(s) and {totals.sets} set(s) created.
+            </p>
+          ) : null}
+          <ul className="space-y-1 text-sm">
+            {run.map((item) => (
+              <li key={item.id} className="flex flex-wrap items-center gap-2">
+                <span className="font-medium">{item.label}</span>
+                <Badge variant={item.state === "failed" ? "destructive" : "secondary"}>
+                  {item.state}
+                </Badge>
+                {item.error ? (
+                  <span className="text-muted-foreground">{item.error}</span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead className="w-10">
+              <Checkbox
+                aria-label="Select all visible pages"
+                checked={visible.length > 0 && visible.every((page) => checked.includes(page.id))}
+                onCheckedChange={(value) =>
+                  setChecked((prev) =>
+                    value
+                      ? Array.from(new Set([...prev, ...visible.map((page) => page.id)]))
+                      : prev.filter((id) => !visible.some((page) => page.id === id)),
+                  )
+                }
+              />
+            </TableHead>
             <TableHead>Photo</TableHead>
             <TableHead>Page</TableHead>
             <TableHead>Container</TableHead>
@@ -113,14 +372,14 @@ function Pages() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {sorted.length === 0 ? (
+          {visible.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={8} className="text-muted-foreground">
+              <TableCell colSpan={9} className="text-muted-foreground">
                 No pages yet
               </TableCell>
             </TableRow>
           ) : (
-            sorted.map((page) => {
+            visible.map((page) => {
               const count = counts[page.id];
               const url = page.photo_path ? thumbs[page.photo_path] : undefined;
               return (
@@ -130,6 +389,17 @@ function Pages() {
                   className="cursor-pointer"
                   data-state={selectedId === page.id ? "selected" : undefined}
                 >
+                  <TableCell onClick={(event) => event.stopPropagation()}>
+                    <Checkbox
+                      aria-label={`Select ${page.label}`}
+                      checked={checked.includes(page.id)}
+                      onCheckedChange={(value) =>
+                        setChecked((prev) =>
+                          value ? [...prev, page.id] : prev.filter((id) => id !== page.id),
+                        )
+                      }
+                    />
+                  </TableCell>
                   <TableCell>
                     {url ? (
                       <img
@@ -169,19 +439,12 @@ function Pages() {
         <PageDetail
           pageId={selectedId}
           onDeleted={() => setSelectedId(null)}
-          refresh={() => {
-            queryClient.invalidateQueries({ queryKey: ["pages"] });
-            queryClient.invalidateQueries({ queryKey: ["page-stamp-counts"] });
-            queryClient.invalidateQueries({ queryKey: ["page-detail", selectedId] });
-            queryClient.invalidateQueries({ queryKey: ["page-stamps", selectedId] });
-            queryClient.invalidateQueries({ queryKey: ["stamps"] });
-            queryClient.invalidateQueries({ queryKey: ["review-stamps"] });
-            queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-          }}
+          refresh={refreshAll}
         />
       ) : null}
     </div>
   );
+
 }
 
 function PageDetail({
