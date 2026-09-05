@@ -236,6 +236,8 @@ export type ReviewStamp = {
   forgery_risk: string;
   variants_to_check: string | null;
   market_notes: string | null;
+  research_brief: string | null;
+  research_brief_generated_at: string | null;
   priority_score: number;
   priority_reasons: string[] | null;
   review_status: string;
