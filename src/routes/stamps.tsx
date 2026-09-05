@@ -17,6 +17,7 @@ import {
 import {
   Tooltip,
   TooltipContent,
+  TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { fetchStamps, formatDenomination } from "@/lib/triage";
@@ -95,14 +96,16 @@ function Stamps() {
             <TableHead className="text-right">
               <span className="inline-flex items-center gap-1">
                 Est. sale value
-                <Tooltip>
+                <TooltipProvider>
+                  <Tooltip>
                   <TooltipTrigger asChild>
                     <Info className="h-3.5 w-3.5 text-muted-foreground" aria-label="About this figure" />
                   </TooltipTrigger>
                   <TooltipContent>
                     An AI guess from a photograph, not a valuation.
                   </TooltipContent>
-                </Tooltip>
+                  </Tooltip>
+                </TooltipProvider>
               </span>
             </TableHead>
             <TableHead className="text-right">Qty</TableHead>
